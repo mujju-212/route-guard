@@ -1,4 +1,4 @@
-﻿import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './pages/auth/LoginPage';
@@ -171,6 +171,38 @@ export default function App() {
 						</RoleGuard>
 					}
 				/>
+				<Route
+					path="driver/my-tasks"
+					element={
+						<RoleGuard allowedRoles={['driver']}>
+							<DriverDashboard initialTab="dashboard" />
+						</RoleGuard>
+					}
+				/>
+				<Route
+					path="driver/pickup"
+					element={
+						<RoleGuard allowedRoles={['driver']}>
+							<DriverDashboard initialTab="pickup" />
+						</RoleGuard>
+					}
+				/>
+				<Route
+					path="driver/navigate"
+					element={
+						<RoleGuard allowedRoles={['driver']}>
+							<DriverDashboard initialTab="navigate" />
+						</RoleGuard>
+					}
+				/>
+				<Route
+					path="driver/alerts"
+					element={
+						<RoleGuard allowedRoles={['driver']}>
+							<DriverDashboard initialTab="alerts" />
+						</RoleGuard>
+					}
+				/>
 
 				<Route
 					path="receiver"
@@ -180,7 +212,31 @@ export default function App() {
 						</RoleGuard>
 					}
 				/>
-				<Route
+			<Route
+				path="receiver/create-order"
+				element={
+					<RoleGuard allowedRoles={['receiver']}>
+						<ReceiverDashboard initialTab="create-order" />
+					</RoleGuard>
+				}
+			/>
+			<Route
+				path="receiver/track"
+				element={
+					<RoleGuard allowedRoles={['receiver']}>
+						<ReceiverDashboard initialTab="track" />
+					</RoleGuard>
+				}
+			/>
+			<Route
+				path="receiver/alerts"
+				element={
+					<RoleGuard allowedRoles={['receiver']}>
+						<ReceiverDashboard initialTab="alerts" />
+					</RoleGuard>
+				}
+			/>
+			<Route
 					path="receiver/shipments/:id"
 					element={
 						<RoleGuard allowedRoles={['receiver']}>
@@ -202,3 +258,4 @@ export default function App() {
 		</Routes>
 	);
 }
+

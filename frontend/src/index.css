@@ -44,6 +44,28 @@
 	--font-body: 'Instrument Sans', sans-serif;
 }
 
+/* Light Mode Theme */
+[data-theme="light"] {
+	--bg-base: #f8f9fa;
+	--bg-surface: #ffffff;
+	--bg-elevated: #f0f4f9;
+	--bg-overlay: #e5ebf0;
+	--accent-primary: #2563eb;
+	--accent-hover: #1d4ed8;
+	--accent-glow: rgba(37, 99, 235, 0.15);
+	--text-primary: #1f2937;
+	--text-secondary: #6b7280;
+	--text-muted: #9ca3af;
+	--text-inverse: #f8f9fa;
+	--border-subtle: rgba(0, 0, 0, 0.04);
+	--border-default: rgba(0, 0, 0, 0.08);
+	--border-strong: rgba(0, 0, 0, 0.16);
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+	--shadow-glow-blue: 0 0 20px rgba(37, 99, 235, 0.15);
+}
+
 * {
 	box-sizing: border-box;
 }
@@ -64,6 +86,11 @@ body {
 	color: var(--text-primary);
 	background: radial-gradient(circle at 20% 0%, rgba(59, 130, 246, 0.12) 0%, transparent 40%),
 		linear-gradient(180deg, #0a0e1a 0%, #070b15 100%);
+}
+
+[data-theme="light"] body {
+	background: radial-gradient(circle at 20% 0%, rgba(37, 99, 235, 0.08) 0%, transparent 40%),
+		linear-gradient(180deg, #f8f9fa 0%, #f0f4f9 100%);
 }
 
 a {
@@ -1010,4 +1037,50 @@ button {
 	.demo-accounts__list {
 		grid-template-columns: 1fr;
 	}
+}
+
+/* Light Mode Theme for Dashboard Components */
+
+[data-theme="light"] .kpi-card {
+background-color: #ffffff !important;
+border-color: #e5ebf0 !important;
+}
+
+[data-theme="light"] .card {
+background-color: #ffffff !important;
+border-color: #e5ebf0 !important;
+color: #1f2937 !important;
+}
+
+[data-theme="light"] .btn-primary {
+background: linear-gradient(135deg, #00d4b4, #22d3ee) !important;
+color: #000 !important;
+}
+
+[data-theme="light"] .btn-ghost {
+color: #00d4b4 !important;
+border-color: #00d4b4 !important;
+}
+
+[data-theme="light"] .input-field {
+background-color: #f8f9fa !important;
+border-color: #e5ebf0 !important;
+color: #1f2937 !important;
+}
+
+[data-theme="light"] .chip-teal { background-color: rgba(0, 212, 180, 0.1) !important; color: #00d4b4 !important; }
+
+[data-theme="light"] div[style*="#080E1A"], [data-theme="light"] div[style*="0a0e1a"] {
+background-color: #f8f9fa !important;
+color: #1f2937 !important;
+}
+
+[data-theme="light"] div[style*="#0D1526"], [data-theme="light"] div[style*="0d1526"] {
+background-color: #ffffff !important;
+border-color: #e5ebf0 !important;
+color: #1f2937 !important;
+}
+
+[data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3, [data-theme="light"] span, [data-theme="light"] p {
+color: #1f2937 !important;
 }

@@ -1,6 +1,7 @@
 ﻿import {
 	Anchor,
 	BarChart3,
+	Bell,
 	CheckCircle,
 	LayoutDashboard,
 	LogOut,
@@ -17,6 +18,7 @@ const ICON_MAP = {
 	LayoutDashboard,
 	Anchor,
 	BarChart3,
+	Bell,
 	Package,
 	PackagePlus,
 	Truck,
@@ -37,8 +39,17 @@ const NAV_CONFIG = {
 	driver: [
 		{ label: 'My Assignment', icon: 'Truck', path: '/driver' },
 		{ label: 'Update Status', icon: 'CheckCircle', path: '/driver/status' },
+		{ label: 'My Tasks', icon: 'Package', path: '/driver/my-tasks' },
+		{ label: 'Pickup Details', icon: 'PackagePlus', path: '/driver/pickup' },
+		{ label: 'Navigation', icon: 'Truck', path: '/driver/navigate' },
+		{ label: 'Alerts', icon: 'Bell', path: '/driver/alerts' },
 	],
-	receiver: [{ label: 'Incoming', icon: 'PackageCheck', path: '/receiver' }],
+	receiver: [
+		{ label: 'Incoming', icon: 'PackageCheck', path: '/receiver' },
+		{ label: 'Create Order', icon: 'PackagePlus', path: '/receiver/create-order' },
+		{ label: 'Track Shipment', icon: 'Truck', path: '/receiver/track' },
+		{ label: 'Alerts', icon: 'Bell', path: '/receiver/alerts' },
+	],
 };
 
 function initials(name = '') {

@@ -16,3 +16,13 @@ backend/.env
 
 # Presentation artifacts
 /ppt/
+
+# Frontend generated artifacts
+frontend/.vite/
+frontend/dist/
+
+# Large ML artifacts (keep out of git history)
+ml/data/**/*.csv
+ml/data/**/*.pdf
+ml/models/**/*.pkl
+ml/models/**/*.pt

@@ -1,30 +1,30 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { CircleMarker, MapContainer, Polyline, TileLayer } from 'react-leaflet';
 import { useParams } from 'react-router-dom';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
-import { DUMMY_SHIPMENTS } from '../../dummy/shipments';
-import { DUMMY_ALERTS } from '../../dummy/alerts';
 import Spinner from '../../components/ui/Spinner';
 import Badge from '../../components/ui/Badge';
 import StatusTimeline from '../../components/shipments/StatusTimeline';
-import DemoModeBanner from '../../components/ui/DemoModeBanner';
 
 export default function ShipmentTracking() {
 	const { id } = useParams();
 	const [shipment, setShipment] = useState(null);
 	const [loading, setLoading] = useState(true);
-	const [usingDummy, setUsingDummy] = useState(false);
+	const [alerts, setAlerts] = useState([]);
+	const [error, setError] = useState('');
 
 	useEffect(() => {
 		const fetchShipment = async () => {
 			setLoading(true);
+			setError('');
 			try {
 				const response = await api.get(ENDPOINTS.SHIPMENT_DETAIL(id));
 				setShipment(response.data);
 			} catch {
-				setShipment(DUMMY_SHIPMENTS.find((item) => item.shipment_id === id) || DUMMY_SHIPMENTS[0]);
-				setUsingDummy(true);
+				setShipment(null);
+				setAlerts([]);
+				setError('Unable to load shipment tracking.');
 			} finally {
 				setLoading(false);
 			}
@@ -33,15 +33,34 @@ export default function ShipmentTracking() {
 		fetchShipment();
 	}, [id]);
 
-	const notifications = useMemo(
-		() => DUMMY_ALERTS.filter((item) => item.shipment_id === shipment?.shipment_id).slice(0, 3),
-		[shipment?.shipment_id]
-	);
+	useEffect(() => {
+		const fetchAlerts = async () => {
+			if (!shipment?.shipment_id) return;
+			try {
+				const response = await api.get(ENDPOINTS.ACTIVE_ALERTS);
+				const items = Array.isArray(response.data) ? response.data : response.data?.alerts || [];
+				setAlerts(items.filter((item) => item.shipment_id === shipment.shipment_id).slice(0, 3));
+			} catch {
+				setAlerts([]);
+			}
+		};
 
-	if (loading || !shipment) {
+		fetchAlerts();
+	}, [shipment?.shipment_id]);
+
+	if (loading) {
 		return (
 			<div className="card" style={{ minHeight: 220, display: 'grid', placeItems: 'center' }}>
 				<Spinner size="lg" />
+			</div>
+		);
+	}
+
+	if (!shipment) {
+		return (
+			<div className="card">
+				<h2 className="section-title">Shipment unavailable</h2>
+				<p className="page-subtitle" style={{ marginBottom: 12 }}>{error || 'Unable to load shipment data.'}</p>
 			</div>
 		);
 	}
@@ -51,7 +70,12 @@ export default function ShipmentTracking() {
 
 	return (
 		<div>
-			<DemoModeBanner usingDummy={usingDummy} />
+			{error ? (
+				<div className="card" style={{ marginBottom: 14 }}>
+					<strong>{error}</strong>
+					<div className="page-subtitle">Check the backend connection and try again.</div>
+				</div>
+			) : null}
 			<div className="page-header">
 				<div>
 					<h1 className="page-title mono">{shipment.tracking_number}</h1>
@@ -118,7 +142,7 @@ export default function ShipmentTracking() {
 
 					<h4 style={{ marginBottom: 8 }}>Recent Notifications</h4>
 					<div className="info-list">
-						{notifications.map((note) => (
+						{alerts.map((note) => (
 							<div className="card" key={note.alert_id} style={{ padding: 10 }}>
 								<div className="mono" style={{ fontSize: 11 }}>{note.alert_type}</div>
 								<div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{note.message.slice(0, 110)}...</div>

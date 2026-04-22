@@ -13,8 +13,6 @@ import {
 } from 'recharts';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
-import { DUMMY_ANALYTICS } from '../../dummy/analytics';
-import DemoModeBanner from '../../components/ui/DemoModeBanner';
 import Spinner from '../../components/ui/Spinner';
 
 const REROUTE_HISTORY = [
@@ -30,11 +28,12 @@ export default function AnalyticsPage() {
 	const [accuracy, setAccuracy] = useState(null);
 	const [riskHistory, setRiskHistory] = useState([]);
 	const [loading, setLoading] = useState(true);
-	const [usingDummy, setUsingDummy] = useState(false);
+	const [error, setError] = useState('');
 
 	useEffect(() => {
 		const fetchData = async () => {
 			setLoading(true);
+			setError('');
 			try {
 				const [overviewRes, accuracyRes] = await Promise.all([
 					api.get(ENDPOINTS.OVERVIEW),
@@ -44,10 +43,10 @@ export default function AnalyticsPage() {
 				setAccuracy(accuracyRes.data);
 				setRiskHistory(overviewRes.data.risk_history_7_days || []);
 			} catch {
-				setOverview(DUMMY_ANALYTICS.overview);
-				setAccuracy(DUMMY_ANALYTICS.accuracy);
-				setRiskHistory(DUMMY_ANALYTICS.risk_history_7_days);
-				setUsingDummy(true);
+				setOverview(null);
+				setAccuracy(null);
+				setRiskHistory([]);
+				setError('Unable to load analytics right now.');
 			} finally {
 				setLoading(false);
 			}
@@ -76,7 +75,12 @@ export default function AnalyticsPage() {
 
 	return (
 		<div>
-			<DemoModeBanner usingDummy={usingDummy} />
+			{error ? (
+				<div className="card" style={{ marginBottom: 14 }}>
+					<strong>{error}</strong>
+					<div className="page-subtitle">Verify the backend is running and reachable.</div>
+				</div>
+			) : null}
 			<div className="page-header">
 				<div>
 					<h1 className="page-title">Model Analytics</h1>

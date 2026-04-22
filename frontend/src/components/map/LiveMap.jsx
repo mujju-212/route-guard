@@ -2,7 +2,6 @@
 import { CircleMarker, MapContainer, TileLayer } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import { useSocket } from '../../hooks/useSocket';
-import { DUMMY_PORTS } from '../../dummy/analytics';
 import RouteLayer from './RouteLayer';
 import VesselMarker from './VesselMarker';
 
@@ -22,7 +21,7 @@ function getPortStyle(score) {
 
 export default function LiveMap({
 	shipments = [],
-	ports = DUMMY_PORTS,
+	ports = [],
 	height = 'calc(100vh - 220px)',
 	selectedShipmentId,
 	onSelectShipment,

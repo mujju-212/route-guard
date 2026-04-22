@@ -4,20 +4,10 @@ import toast from 'react-hot-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
-import { DUMMY_ML_PREDICTION, DUMMY_SHIPMENTS } from '../../dummy/shipments';
 import Badge from '../../components/ui/Badge';
-import DemoModeBanner from '../../components/ui/DemoModeBanner';
 import Spinner from '../../components/ui/Spinner';
 import FinancialImpactCard from '../../components/routes/FinancialImpactCard';
 import RouteCompareTable from '../../components/routes/RouteCompareTable';
-
-function fallbackShipment(id) {
-	if (id) {
-		return DUMMY_SHIPMENTS.find((item) => item.shipment_id === id) || null;
-	}
-	const candidates = DUMMY_SHIPMENTS.filter((item) => item.status !== 'delivered');
-	return [...candidates].sort((a, b) => b.current_risk_score - a.current_risk_score)[0] || null;
-}
 
 export default function RouteChangeAlert() {
 	const navigate = useNavigate();
@@ -25,13 +15,22 @@ export default function RouteChangeAlert() {
 	const [shipment, setShipment] = useState(null);
 	const [prediction, setPrediction] = useState(null);
 	const [loading, setLoading] = useState(true);
-	const [usingDummy, setUsingDummy] = useState(false);
+	const [error, setError] = useState('');
 
 	useEffect(() => {
 		const fetchData = async () => {
 			setLoading(true);
+			setError('');
 			try {
-				const target = id || fallbackShipment(null)?.shipment_id;
+				let target = id;
+				if (!target) {
+					const assignmentRes = await api.get(ENDPOINTS.MY_ASSIGNMENT);
+					const payload = assignmentRes?.data;
+					const assignment = Array.isArray(payload)
+						? payload[0]
+						: payload?.shipment || payload?.assignment || payload;
+					target = assignment?.shipment_id;
+				}
 				if (!target) throw new Error('No route change target');
 				const [shipmentRes, predictionRes] = await Promise.all([
 					api.get(ENDPOINTS.SHIPMENT_DETAIL(target)),
@@ -40,9 +39,9 @@ export default function RouteChangeAlert() {
 				setShipment(shipmentRes.data);
 				setPrediction(predictionRes.data);
 			} catch {
-				setShipment(fallbackShipment(id));
-				setPrediction(DUMMY_ML_PREDICTION);
-				setUsingDummy(true);
+				setShipment(null);
+				setPrediction(null);
+				setError('Unable to load route change details.');
 			} finally {
 				setLoading(false);
 			}
@@ -62,7 +61,8 @@ export default function RouteChangeAlert() {
 		try {
 			await api.post(ENDPOINTS.APPROVE_REROUTE(shipment.shipment_id), { route_id: route.route_id });
 		} catch {
-			// Demo mode keeps this action local.
+			toast.error('Unable to approve route right now.');
+			return;
 		}
 		toast.success('Route update acknowledged and sent to operations.');
 		navigate('/driver');
@@ -85,9 +85,7 @@ export default function RouteChangeAlert() {
 		return (
 			<div className="card">
 				<h2 className="section-title">No route-change alert found</h2>
-				<p className="page-subtitle" style={{ marginBottom: 12 }}>
-					No active reroute request is available right now.
-				</p>
+				<p className="page-subtitle" style={{ marginBottom: 12 }}>{error || 'No active reroute request is available right now.'}</p>
 				<button type="button" className="btn-primary" onClick={() => navigate('/driver')}>
 					Back to Dashboard
 				</button>
@@ -100,8 +98,6 @@ export default function RouteChangeAlert() {
 
 	return (
 		<div>
-			<DemoModeBanner usingDummy={usingDummy} />
-
 			<div className="page-header">
 				<div>
 					<button type="button" className="btn-outline" onClick={() => navigate('/driver')}>

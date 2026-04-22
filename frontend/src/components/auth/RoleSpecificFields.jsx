@@ -4,14 +4,28 @@ export default function RoleSpecificFields({
 	onIndustryTypeChange,
 	otherIndustry,
 	onOtherIndustryChange,
+	companyName,
+	onCompanyNameChange,
 }) {
+	const resolvedCompanyName = companyName ?? '';
+	const handleCompanyChange = (event) => {
+		if (onCompanyNameChange) {
+			onCompanyNameChange(event.target.value);
+		}
+	};
+
 	if (role === 'receiver') {
 		return (
 			<>
 				<div className="portal-auth__section-title portal-auth__full-width">Receiver Details</div>
 				<div className="portal-auth__form-group">
 					<label>Company / Individual Name *</label>
-					<input type="text" placeholder="Enter name" />
+					<input
+						type="text"
+						placeholder="Enter name"
+						value={resolvedCompanyName}
+						onChange={handleCompanyChange}
+					/>
 				</div>
 				<div className="portal-auth__form-group">
 					<label>Storage Type</label>
@@ -54,7 +68,12 @@ export default function RoleSpecificFields({
 				<div className="portal-auth__section-title portal-auth__full-width">Business and Cargo Details</div>
 				<div className="portal-auth__form-group">
 					<label>Company Name *</label>
-					<input type="text" placeholder="Enter company name" />
+					<input
+						type="text"
+						placeholder="Enter company name"
+						value={resolvedCompanyName}
+						onChange={handleCompanyChange}
+					/>
 				</div>
 				<div className="portal-auth__form-group">
 					<label>Business Type *</label>
@@ -123,7 +142,12 @@ export default function RoleSpecificFields({
 				<div className="portal-auth__section-title portal-auth__full-width">Operational Authority</div>
 				<div className="portal-auth__form-group">
 					<label>Carrier / Company Name *</label>
-					<input type="text" placeholder="Logistics Firm Name" />
+					<input
+						type="text"
+						placeholder="Logistics Firm Name"
+						value={resolvedCompanyName}
+						onChange={handleCompanyChange}
+					/>
 				</div>
 				<div className="portal-auth__form-group">
 					<label>Department *</label>
@@ -172,7 +196,12 @@ export default function RoleSpecificFields({
 				<div className="portal-auth__section-title portal-auth__full-width">Fleet and Licensing Info</div>
 				<div className="portal-auth__form-group">
 					<label>Company Name (If applicable)</label>
-					<input type="text" placeholder="Independent or Fleet Name" />
+					<input
+						type="text"
+						placeholder="Independent or Fleet Name"
+						value={resolvedCompanyName}
+						onChange={handleCompanyChange}
+					/>
 				</div>
 				<div className="portal-auth__form-group">
 					<label>Vehicle Type *</label>

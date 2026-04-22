@@ -2,8 +2,6 @@
 import { CircleMarker, MapContainer, TileLayer } from 'react-leaflet';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
-import { DUMMY_PORTS } from '../../dummy/analytics';
-import DemoModeBanner from '../../components/ui/DemoModeBanner';
 import Spinner from '../../components/ui/Spinner';
 import Badge from '../../components/ui/Badge';
 
@@ -24,17 +22,18 @@ function levelFromScore(score) {
 export default function PortStatusBoard() {
 	const [ports, setPorts] = useState([]);
 	const [loading, setLoading] = useState(true);
-	const [usingDummy, setUsingDummy] = useState(false);
+	const [error, setError] = useState('');
 
 	useEffect(() => {
 		const fetchPorts = async () => {
 			setLoading(true);
+			setError('');
 			try {
 				const response = await api.get(ENDPOINTS.PORT_STATUS);
 				setPorts(response.data || []);
 			} catch {
-				setPorts(DUMMY_PORTS);
-				setUsingDummy(true);
+				setPorts([]);
+				setError('Unable to load port status data.');
 			} finally {
 				setLoading(false);
 			}
@@ -67,7 +66,12 @@ export default function PortStatusBoard() {
 
 	return (
 		<div>
-			<DemoModeBanner usingDummy={usingDummy} />
+			{error ? (
+				<div className="card" style={{ marginBottom: 14 }}>
+					<strong>{error}</strong>
+					<div className="page-subtitle">Check the backend connection and try again.</div>
+				</div>
+			) : null}
 			<div className="page-header">
 				<div>
 					<h1 className="page-title">Global Port Status</h1>

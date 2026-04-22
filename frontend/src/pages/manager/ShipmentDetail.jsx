@@ -4,10 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
-import { DUMMY_ML_PREDICTION, DUMMY_SHIPMENTS } from '../../dummy/shipments';
 import Badge from '../../components/ui/Badge';
 import Spinner from '../../components/ui/Spinner';
-import DemoModeBanner from '../../components/ui/DemoModeBanner';
 import RiskGauge from '../../components/risk/RiskGauge';
 import FeatureChart from '../../components/risk/FeatureChart';
 import TrajectoryGraph from '../../components/risk/TrajectoryGraph';
@@ -21,11 +19,12 @@ export default function ShipmentDetail() {
 	const [shipment, setShipment] = useState(null);
 	const [prediction, setPrediction] = useState(null);
 	const [loading, setLoading] = useState(true);
-	const [usingDummy, setUsingDummy] = useState(false);
+	const [error, setError] = useState('');
 
 	useEffect(() => {
 		const fetchData = async () => {
 			setLoading(true);
+			setError('');
 			try {
 				const [shipmentRes, predictionRes] = await Promise.all([
 					api.get(ENDPOINTS.SHIPMENT_DETAIL(id)),
@@ -34,9 +33,9 @@ export default function ShipmentDetail() {
 				setShipment(shipmentRes.data);
 				setPrediction(predictionRes.data);
 			} catch {
-				setShipment(DUMMY_SHIPMENTS.find((item) => item.shipment_id === id) || DUMMY_SHIPMENTS[0]);
-				setPrediction(DUMMY_ML_PREDICTION);
-				setUsingDummy(true);
+				setShipment(null);
+				setPrediction(null);
+				setError('Unable to load shipment details.');
 			} finally {
 				setLoading(false);
 			}
@@ -59,14 +58,15 @@ export default function ShipmentDetail() {
 	const approveReroute = async (route) => {
 		try {
 			await api.post(ENDPOINTS.APPROVE_REROUTE(shipment.shipment_id), { route_id: route.route_id });
+			setShipment((prev) => ({ ...prev, is_rerouted: true, reroute_count: (prev?.reroute_count || 0) + 1 }));
+			toast.success('Reroute approved. Captain notified.');
 		} catch {
-			// local state fallback for demo mode
+			toast.error('Unable to approve reroute right now.');
+			return;
 		}
-		setShipment((prev) => ({ ...prev, is_rerouted: true, reroute_count: (prev?.reroute_count || 0) + 1 }));
-		toast.success('Reroute approved. Captain notified.');
 	};
 
-	if (loading || !shipment) {
+	if (loading) {
 		return (
 			<div className="card" style={{ minHeight: 240, display: 'grid', placeItems: 'center' }}>
 				<Spinner size="lg" />
@@ -74,10 +74,20 @@ export default function ShipmentDetail() {
 		);
 	}
 
+	if (!shipment) {
+		return (
+			<div className="card">
+				<h2 className="section-title">Shipment unavailable</h2>
+				<p className="page-subtitle" style={{ marginBottom: 12 }}>{error || 'Unable to load shipment data.'}</p>
+				<button type="button" className="btn-primary" onClick={() => navigate('/manager')}>
+					Back to Dashboard
+				</button>
+			</div>
+		);
+	}
+
 	return (
 		<div>
-			<DemoModeBanner usingDummy={usingDummy} />
-
 			<div className="page-header">
 				<div>
 					<button type="button" className="btn-outline" onClick={() => navigate('/manager')}>

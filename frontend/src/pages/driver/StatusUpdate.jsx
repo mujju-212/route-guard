@@ -3,9 +3,7 @@ import toast from 'react-hot-toast';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
-import { DUMMY_SHIPMENTS } from '../../dummy/shipments';
 import Badge from '../../components/ui/Badge';
-import DemoModeBanner from '../../components/ui/DemoModeBanner';
 import Spinner from '../../components/ui/Spinner';
 import StatusTimeline from '../../components/shipments/StatusTimeline';
 
@@ -16,14 +14,6 @@ const STATUS_OPTIONS = [
 	{ value: 'customs_clearance', label: 'Customs Clearance' },
 	{ value: 'delivered', label: 'Delivered' },
 ];
-
-function fallbackAssignment(shipmentId) {
-	if (shipmentId) {
-		return DUMMY_SHIPMENTS.find((item) => item.shipment_id === shipmentId) || null;
-	}
-	const active = DUMMY_SHIPMENTS.filter((item) => item.status !== 'delivered');
-	return active[0] || null;
-}
 
 function initialTimeline(shipment) {
 	if (!shipment) return [];
@@ -43,7 +33,7 @@ export default function StatusUpdate() {
 	const [timelineUpdates, setTimelineUpdates] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
-	const [usingDummy, setUsingDummy] = useState(false);
+	const [error, setError] = useState('');
 	const [form, setForm] = useState({
 		status: 'in_transit',
 		latitude: '',
@@ -55,6 +45,7 @@ export default function StatusUpdate() {
 	useEffect(() => {
 		const fetchAssignment = async () => {
 			setLoading(true);
+			setError('');
 			try {
 				if (shipmentId) {
 					const detail = await api.get(ENDPOINTS.SHIPMENT_DETAIL(shipmentId));
@@ -72,11 +63,9 @@ export default function StatusUpdate() {
 				setForm((prev) => ({ ...prev, status: assignment.status || prev.status }));
 				setTimelineUpdates(initialTimeline(assignment));
 			} catch {
-				const fallback = fallbackAssignment(shipmentId);
-				setShipment(fallback);
-				setForm((prev) => ({ ...prev, status: fallback?.status || prev.status }));
-				setTimelineUpdates(initialTimeline(fallback));
-				setUsingDummy(true);
+				setShipment(null);
+				setTimelineUpdates([]);
+				setError('Unable to load driver assignment.');
 			} finally {
 				setLoading(false);
 			}
@@ -109,7 +98,9 @@ export default function StatusUpdate() {
 				await api.post(ENDPOINTS.REPORT_INCIDENT(shipment.shipment_id), { note: form.notes.trim() });
 			}
 		} catch {
-			// Keeps status update usable in demo mode.
+			setSaving(false);
+			toast.error('Unable to submit status update.');
+			return;
 		}
 
 		setTimelineUpdates((prev) => [
@@ -134,9 +125,7 @@ export default function StatusUpdate() {
 		return (
 			<div className="card">
 				<h2 className="section-title">No shipment selected</h2>
-				<p className="page-subtitle" style={{ marginBottom: 12 }}>
-					Open this page from your assignment dashboard.
-				</p>
+				<p className="page-subtitle" style={{ marginBottom: 12 }}>{error || 'Open this page from your assignment dashboard.'}</p>
 				<button type="button" className="btn-primary" onClick={() => navigate('/driver')}>
 					Back to Dashboard
 				</button>
@@ -146,8 +135,6 @@ export default function StatusUpdate() {
 
 	return (
 		<div>
-			<DemoModeBanner usingDummy={usingDummy} />
-
 			<div className="page-header">
 				<div>
 					<h1 className="page-title">Status Update</h1>

@@ -3,9 +3,6 @@ import { PackageCheck, Search, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
-import { DUMMY_SHIPMENTS } from '../../dummy/shipments';
-import { useAuth } from '../../hooks/useAuth';
-import DemoModeBanner from '../../components/ui/DemoModeBanner';
 import EmptyState from '../../components/ui/EmptyState';
 import Spinner from '../../components/ui/Spinner';
 import StatCard from '../../components/ui/StatCard';
@@ -18,33 +15,29 @@ function isIncoming(shipment) {
 
 export default function ReceiverDashboard() {
 	const navigate = useNavigate();
-	const { user } = useAuth();
 	const [shipments, setShipments] = useState([]);
 	const [loading, setLoading] = useState(true);
-	const [usingDummy, setUsingDummy] = useState(false);
+	const [error, setError] = useState('');
 	const [search, setSearch] = useState('');
 	const [riskFilter, setRiskFilter] = useState('all');
 
 	useEffect(() => {
 		const fetchShipments = async () => {
 			setLoading(true);
+			setError('');
 			try {
 				const response = await api.get(ENDPOINTS.MY_SHIPMENTS);
 				setShipments(response.data || []);
 			} catch {
-				const name = user?.name?.toLowerCase();
-				const mine = DUMMY_SHIPMENTS.filter((item) =>
-					name ? item.receiver_name?.toLowerCase().includes(name) : true
-				);
-				setShipments(mine.length ? mine : DUMMY_SHIPMENTS);
-				setUsingDummy(true);
+				setShipments([]);
+				setError('Unable to load shipments.');
 			} finally {
 				setLoading(false);
 			}
 		};
 
 		fetchShipments();
-	}, [user?.name]);
+	}, []);
 
 	const incoming = useMemo(() => shipments.filter((item) => isIncoming(item)), [shipments]);
 	const delivered = useMemo(() => shipments.filter((item) => item.status === 'delivered'), [shipments]);
@@ -71,7 +64,12 @@ export default function ReceiverDashboard() {
 
 	return (
 		<div>
-			<DemoModeBanner usingDummy={usingDummy} />
+			{error ? (
+				<div className="card" style={{ marginBottom: 14 }}>
+					<strong>{error}</strong>
+					<div className="page-subtitle">Check the backend connection and try again.</div>
+				</div>
+			) : null}
 
 			<div className="page-header">
 				<div>

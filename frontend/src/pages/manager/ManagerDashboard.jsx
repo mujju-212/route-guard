@@ -1,13 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, DollarSign, Ship, CheckCircle2, Truck, Users, Zap } from 'lucide-react';
-import { api } from '../../config/api';
-import { ENDPOINTS } from '../../config/endpoints';
-import { DUMMY_SHIPMENTS } from '../../dummy/shipments';
-import { DUMMY_ALERTS } from '../../dummy/alerts';
-import { DUMMY_ANALYTICS, DUMMY_PORTS } from '../../dummy/analytics';
 import { useSocket } from '../../hooks/useSocket';
 import Spinner from '../../components/ui/Spinner';
-import DemoModeBanner from '../../components/ui/DemoModeBanner';
 
 // Theme colors
 const T = {
@@ -518,7 +512,6 @@ export default function ManagerDashboard() {
 	const [activeTab, setActiveTab] = useState('dashboard');
 	const [simMode, setSimMode] = useState(false);
 	const [loading, setLoading] = useState(false);
-	const [usingDummy, setUsingDummy] = useState(true);
 
 	useEffect(() => {
 		setLoading(false);
@@ -538,7 +531,6 @@ export default function ManagerDashboard() {
 	return (
 		<>
 			<style>{css}</style>
-			<DemoModeBanner usingDummy={usingDummy} />
 			<div style={{ color: T.white }}>
 				<NavTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 				<div style={{ padding: '0 32px 28px 32px' }}>

@@ -1,30 +1,23 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { AlertTriangle, MapPin, Route, Truck } from 'lucide-react';
 import { CircleMarker, MapContainer, Polyline, TileLayer } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
-import { DUMMY_ALERTS } from '../../dummy/alerts';
-import { DUMMY_SHIPMENTS } from '../../dummy/shipments';
 import Badge from '../../components/ui/Badge';
-import DemoModeBanner from '../../components/ui/DemoModeBanner';
 import Spinner from '../../components/ui/Spinner';
-
-function pickFallbackAssignment() {
-	const active = DUMMY_SHIPMENTS.filter((item) => item.status !== 'delivered');
-	const sorted = [...active].sort((a, b) => b.current_risk_score - a.current_risk_score);
-	return sorted[0] || null;
-}
 
 export default function DriverDashboard() {
 	const navigate = useNavigate();
 	const [assignment, setAssignment] = useState(null);
 	const [loading, setLoading] = useState(true);
-	const [usingDummy, setUsingDummy] = useState(false);
+	const [alerts, setAlerts] = useState([]);
+	const [error, setError] = useState('');
 
 	useEffect(() => {
 		const fetchAssignment = async () => {
 			setLoading(true);
+			setError('');
 			try {
 				const response = await api.get(ENDPOINTS.MY_ASSIGNMENT);
 				const payload = response?.data;
@@ -36,8 +29,9 @@ export default function DriverDashboard() {
 				}
 				setAssignment(nextAssignment);
 			} catch {
-				setAssignment(pickFallbackAssignment());
-				setUsingDummy(true);
+				setAssignment(null);
+				setAlerts([]);
+				setError('Unable to load driver assignment.');
 			} finally {
 				setLoading(false);
 			}
@@ -46,9 +40,19 @@ export default function DriverDashboard() {
 		fetchAssignment();
 	}, []);
 
-	const assignmentAlerts = useMemo(() => {
-		if (!assignment?.shipment_id) return [];
-		return DUMMY_ALERTS.filter((item) => item.shipment_id === assignment.shipment_id).slice(0, 3);
+	useEffect(() => {
+		const fetchAlerts = async () => {
+			if (!assignment?.shipment_id) return;
+			try {
+				const response = await api.get(ENDPOINTS.ACTIVE_ALERTS);
+				const items = Array.isArray(response.data) ? response.data : response.data?.alerts || [];
+				setAlerts(items.filter((item) => item.shipment_id === assignment.shipment_id).slice(0, 3));
+			} catch {
+				setAlerts([]);
+			}
+		};
+
+		fetchAlerts();
 	}, [assignment?.shipment_id]);
 
 	if (loading) {
@@ -63,9 +67,7 @@ export default function DriverDashboard() {
 		return (
 			<div className="card">
 				<h2 className="section-title">No assignment available</h2>
-				<p className="page-subtitle" style={{ marginBottom: 12 }}>
-					There is no active shipment assigned right now.
-				</p>
+				<p className="page-subtitle" style={{ marginBottom: 12 }}>{error || 'There is no active shipment assigned right now.'}</p>
 				<button type="button" className="btn-primary" onClick={() => window.location.reload()}>
 					Refresh Assignment
 				</button>
@@ -77,8 +79,6 @@ export default function DriverDashboard() {
 
 	return (
 		<div>
-			<DemoModeBanner usingDummy={usingDummy} />
-
 			<div className="page-header">
 				<div>
 					<h1 className="page-title">My Assignment</h1>
@@ -165,9 +165,9 @@ export default function DriverDashboard() {
 
 				<div className="card">
 					<h3 className="section-title">Recent Alerts</h3>
-					{assignmentAlerts.length ? (
+					{alerts.length ? (
 						<div className="info-list">
-							{assignmentAlerts.map((alert) => (
+							{alerts.map((alert) => (
 								<div key={alert.alert_id} className="card" style={{ padding: 10 }}>
 									<div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
 										<div className="mono" style={{ fontSize: 11 }}>{alert.alert_type}</div>

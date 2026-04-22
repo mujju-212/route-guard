@@ -26,11 +26,14 @@ function normalizeRole(role) {
 
 export default function LoginPage() {
 	const navigate = useNavigate();
-	const { login } = useAuth();
+	const { login, register } = useAuth();
 	const [theme, setTheme] = useState('dark');
 	const [authOpen, setAuthOpen] = useState(false);
 	const [isSignup, setIsSignup] = useState(false);
 	const [selectedRole, setSelectedRole] = useState('receiver');
+	const [fullName, setFullName] = useState('');
+	const [phoneNumber, setPhoneNumber] = useState('');
+	const [companyName, setCompanyName] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
 	const [confirmPassword, setConfirmPassword] = useState('');
@@ -72,37 +75,55 @@ export default function LoginPage() {
 		setLoading(true);
 		setError('');
 
-		if (isSignup) {
-			if (password !== confirmPassword) {
-				setLoading(false);
-				setError('Passwords do not match.');
-				return;
-			}
-			if (!acceptTerms) {
-				setLoading(false);
-				setError('Please accept the terms and conditions to continue.');
-				return;
-			}
-			setTimeout(() => {
-				setLoading(false);
-				toast.success(`Access request submitted for ${currentRoleData.label}.`);
+		try {
+			if (isSignup) {
+				if (!fullName.trim()) {
+					setError('Full name is required.');
+					return;
+				}
+				if (password !== confirmPassword) {
+					setError('Passwords do not match.');
+					return;
+				}
+				if (!acceptTerms) {
+					setError('Please accept the terms and conditions to continue.');
+					return;
+				}
+
+				const registerPayload = {
+					full_name: fullName.trim(),
+					email: String(email || '').trim(),
+					password,
+					role: selectedRole,
+					company_name: companyName.trim() || null,
+					phone_number: phoneNumber.trim() || null,
+				};
+
+				const result = await register(registerPayload);
+				if (!result.success) {
+					setError(result.error || 'Registration failed.');
+					return;
+				}
+
+				toast.success(`Account created for ${currentRoleData.label}.`);
 				setIsSignup(false);
 				setConfirmPassword('');
 				setAcceptTerms(false);
-			}, 700);
-			return;
-		}
+				navigate(ROLE_ROUTES[normalizeRole(result.user.role)] || '/login');
+				return;
+			}
 
-		const result = await login(email, password);
-		if (!result.success) {
-			setError('Invalid email or password. Try one of the demo accounts.');
+			const result = await login(String(email || '').trim(), password);
+			if (!result.success) {
+				setError(result.error || 'Invalid email or password.');
+				return;
+			}
+
+			toast.success(`Authenticated as ${result.user.role}.`);
+			navigate(ROLE_ROUTES[normalizeRole(result.user.role)] || '/login');
+		} finally {
 			setLoading(false);
-			return;
 		}
-
-		toast.success(`Authenticated as ${result.user.role}.`);
-		navigate(ROLE_ROUTES[normalizeRole(result.user.role)] || '/login');
-		setLoading(false);
 	};
 
 	const fillDemo = (account) => {
@@ -170,11 +191,23 @@ export default function LoginPage() {
 										<div className="portal-auth__section-title portal-auth__full-width">Basic Information</div>
 										<div className="portal-auth__form-group">
 											<label>Full Name *</label>
-											<input type="text" placeholder="John Doe" />
+											<input
+												type="text"
+												placeholder="John Doe"
+												value={fullName}
+												onChange={(event) => setFullName(event.target.value)}
+												required
+											/>
 										</div>
 										<div className="portal-auth__form-group">
 											<label>Phone Number *</label>
-											<input type="tel" placeholder="+1 (555) 000-0000" />
+											<input
+												type="tel"
+												placeholder="+1 (555) 000-0000"
+												value={phoneNumber}
+												onChange={(event) => setPhoneNumber(event.target.value)}
+												required
+											/>
 										</div>
 										<div className="portal-auth__form-group portal-auth__full-width">
 											<label>Account Role *</label>
@@ -239,6 +272,8 @@ export default function LoginPage() {
 										onIndustryTypeChange={setIndustryType}
 										otherIndustry={otherIndustry}
 										onOtherIndustryChange={setOtherIndustry}
+										companyName={companyName}
+										onCompanyNameChange={setCompanyName}
 									/>
 								) : null}
 

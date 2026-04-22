@@ -17,13 +17,10 @@ import {
 } from 'lucide-react';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
-import { DUMMY_SHIPMENTS } from '../../dummy/shipments';
-import { useAuth } from '../../hooks/useAuth';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import ShipmentTable from '../../components/shipments/ShipmentTable';
 import ShipmentCard from '../../components/shipments/ShipmentCard';
-import DemoModeBanner from '../../components/ui/DemoModeBanner';
 
 // KPI Component
 function KPICard({ icon: Icon, label, value, subtitle }) {
@@ -366,10 +363,9 @@ function OrderCardWithActions({ order, onReview, onAccept, onReject }) {
 
 export default function ShipperDashboard() {
 	const navigate = useNavigate();
-	const { user } = useAuth();
 	const [shipments, setShipments] = useState([]);
 	const [loading, setLoading] = useState(true);
-	const [usingDummy, setUsingDummy] = useState(false);
+	const [error, setError] = useState('');
 	const [search, setSearch] = useState('');
 	const [statusFilter, setStatusFilter] = useState('all');
 	const [selectedOrder, setSelectedOrder] = useState(null);
@@ -409,22 +405,20 @@ export default function ShipperDashboard() {
 	useEffect(() => {
 		const fetchData = async () => {
 			setLoading(true);
+			setError('');
 			try {
 				const response = await api.get(ENDPOINTS.MY_SHIPMENTS);
 				setShipments(response.data || []);
 			} catch {
-				const mine = DUMMY_SHIPMENTS.filter((item) =>
-					user?.name ? item.shipper_name?.toLowerCase().includes(user.name.toLowerCase()) : true
-				);
-				setShipments(mine.length ? mine : DUMMY_SHIPMENTS.slice(0, 2));
-				setUsingDummy(true);
+				setShipments([]);
+				setError('Unable to load shipments.');
 			} finally {
 				setLoading(false);
 			}
 		};
 
 		fetchData();
-	}, [user?.name]);
+	}, []);
 
 	const filteredShipments = useMemo(() => {
 		return shipments.filter((item) => {
@@ -467,7 +461,12 @@ export default function ShipperDashboard() {
 
 	return (
 		<div>
-			<DemoModeBanner usingDummy={usingDummy} />
+			{error ? (
+				<div className="card" style={{ marginBottom: 14 }}>
+					<strong>{error}</strong>
+					<div className="page-subtitle">Check the backend connection and try again.</div>
+				</div>
+			) : null}
 
 			{/* Page Header */}
 			<div className="page-header">

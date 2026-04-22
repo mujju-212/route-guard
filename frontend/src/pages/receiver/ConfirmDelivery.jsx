@@ -3,10 +3,8 @@ import toast from 'react-hot-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
-import { DUMMY_SHIPMENTS } from '../../dummy/shipments';
 import { useAuth } from '../../hooks/useAuth';
 import Badge from '../../components/ui/Badge';
-import DemoModeBanner from '../../components/ui/DemoModeBanner';
 import Spinner from '../../components/ui/Spinner';
 
 function nowInputValue() {
@@ -19,7 +17,7 @@ export default function ConfirmDelivery() {
 	const { user } = useAuth();
 	const [shipment, setShipment] = useState(null);
 	const [loading, setLoading] = useState(true);
-	const [usingDummy, setUsingDummy] = useState(false);
+	const [error, setError] = useState('');
 	const [submitting, setSubmitting] = useState(false);
 	const [form, setForm] = useState({
 		receiver_name: user?.name || '',
@@ -34,12 +32,13 @@ export default function ConfirmDelivery() {
 	useEffect(() => {
 		const fetchShipment = async () => {
 			setLoading(true);
+			setError('');
 			try {
 				const response = await api.get(ENDPOINTS.SHIPMENT_DETAIL(id));
 				setShipment(response.data);
 			} catch {
-				setShipment(DUMMY_SHIPMENTS.find((item) => item.shipment_id === id) || DUMMY_SHIPMENTS[0]);
-				setUsingDummy(true);
+				setShipment(null);
+				setError('Unable to load shipment details.');
 			} finally {
 				setLoading(false);
 			}
@@ -76,7 +75,9 @@ export default function ConfirmDelivery() {
 		try {
 			await api.post(ENDPOINTS.CONFIRM_DELIVERY(shipment.shipment_id), payload);
 		} catch {
-			// Demo mode local confirmation.
+			setSubmitting(false);
+			toast.error('Unable to submit confirmation right now.');
+			return;
 		}
 
 		setSubmitting(false);
@@ -84,7 +85,7 @@ export default function ConfirmDelivery() {
 		navigate('/receiver');
 	};
 
-	if (loading || !shipment) {
+	if (loading) {
 		return (
 			<div className="card" style={{ minHeight: 220, display: 'grid', placeItems: 'center' }}>
 				<Spinner size="lg" />
@@ -92,10 +93,17 @@ export default function ConfirmDelivery() {
 		);
 	}
 
+	if (!shipment) {
+		return (
+			<div className="card">
+				<h2 className="section-title">Shipment unavailable</h2>
+				<p className="page-subtitle" style={{ marginBottom: 12 }}>{error || 'Unable to load shipment data.'}</p>
+			</div>
+		);
+	}
+
 	return (
 		<div>
-			<DemoModeBanner usingDummy={usingDummy} />
-
 			<div className="page-header">
 				<div>
 					<h1 className="page-title">Confirm Delivery</h1>

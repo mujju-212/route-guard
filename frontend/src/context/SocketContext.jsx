@@ -13,7 +13,7 @@ export function SocketProvider({ children }) {
 	const [newAlerts, setNewAlerts] = useState([]);
 
 	useEffect(() => {
-		if (!token) {
+		if (!token || token.startsWith('dummy_token_')) {
 			setSocket(null);
 			return;
 		}

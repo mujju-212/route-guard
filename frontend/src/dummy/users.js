@@ -5,8 +5,28 @@
 	{ user_id: 'USR-004', name: 'Anna Schmidt', email: 'receiver@routeguard.com', password: 'test1234', role: 'receiver', company: 'Amazon Logistics EU' },
 ];
 
+const EMAIL_ALIASES = {
+	reciver: 'receiver@routeguard.com',
+	reciever: 'receiver@routeguard.com',
+	receiver: 'receiver@routeguard.com',
+	'reciver@routeguard.com': 'receiver@routeguard.com',
+	'reciever@routeguard.com': 'receiver@routeguard.com',
+	manager: 'manager@routeguard.com',
+	driver: 'driver@routeguard.com',
+	shipper: 'shipper@routeguard.com',
+};
+
+function normalizeIdentifier(value) {
+	return String(value || '').trim().toLowerCase();
+}
+
 export function dummyLogin(email, password) {
-	const user = DUMMY_USERS.find((u) => u.email === email && u.password === password);
+	const normalizedEmail = normalizeIdentifier(email);
+	const normalizedPassword = String(password || '').trim();
+	const canonicalEmail = EMAIL_ALIASES[normalizedEmail] || normalizedEmail;
+	const user = DUMMY_USERS.find(
+		(item) => item.email.toLowerCase() === canonicalEmail && item.password === normalizedPassword
+	);
 	if (!user) return null;
 	return {
 		user: {

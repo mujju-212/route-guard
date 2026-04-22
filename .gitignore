@@ -5,3 +5,14 @@ __pycache__/
 .env
 frontend/.env
 backend/.env
+
+# Root planning documents
+/backend thing.md
+/backend thing.txt
+/ml implementaion.md
+/RouteGuard_Frontend_Spec.md
+/RouteGuard_Project_Plan.md
+/Smart Supply Chain Hone.md
+
+# Presentation artifacts
+/ppt/

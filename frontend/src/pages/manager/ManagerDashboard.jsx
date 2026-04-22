@@ -464,9 +464,10 @@ const RiskAlertsScreen = () => (
 	</div>
 );
 
-// Navigation Tabs
-const NavTabs = ({ activeTab, setActiveTab }) => (
-	<div style={{ display: 'flex', gap: 8, marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${T.border}`, overflowX: 'auto', paddingLeft: 32, paddingRight: 32 }}>
+// Navigation Sidebar
+const NavSidebar = ({ activeTab, setActiveTab }) => (
+	<div style={{ width: 260, background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '20px 16px', height: 'fit-content', display: 'flex', flexDirection: 'column', gap: 8 }}>
+		<div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.grayDim, marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${T.border}` }}>Features</div>
 		{[
 			{ id: 'dashboard', label: 'Control Tower', icon: 'activity' },
 			{ id: 'shipments', label: 'Live Shipments', icon: 'truck' },
@@ -479,18 +480,19 @@ const NavTabs = ({ activeTab, setActiveTab }) => (
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: 8,
-					padding: '10px 16px',
+					gap: 12,
+					padding: '12px 14px',
 					border: activeTab === tab.id ? `2px solid ${T.teal}` : `1px solid ${T.border}`,
 					background: activeTab === tab.id ? `rgba(0,212,180,.1)` : 'transparent',
 					color: activeTab === tab.id ? T.teal : T.gray,
 					borderRadius: 8,
 					cursor: 'pointer',
-					fontSize: 12,
+					fontSize: 13,
 					fontWeight: activeTab === tab.id ? 700 : 500,
 					transition: 'all 0.2s',
 					fontFamily: "'Space Grotesk', sans-serif",
-					whiteSpace: 'nowrap',
+					width: '100%',
+					justifyContent: 'flex-start',
 				}}
 				onClick={() => setActiveTab(tab.id)}
 				onMouseEnter={(e) => {
@@ -506,8 +508,8 @@ const NavTabs = ({ activeTab, setActiveTab }) => (
 					}
 				}}
 			>
-				<Icon name={tab.icon} size={14} color="currentColor" />
-				{tab.label}
+				<Icon name={tab.icon} size={16} color="currentColor" />
+				<span>{tab.label}</span>
 			</button>
 		))}
 	</div>
@@ -539,14 +541,16 @@ export default function ManagerDashboard() {
 		<>
 			<style>{css}</style>
 			<DemoModeBanner usingDummy={usingDummy} />
-			<div style={{ color: T.white }}>
-				<NavTabs activeTab={activeTab} setActiveTab={setActiveTab} />
-				<div style={{ padding: '0 32px 28px 32px' }}>
-					{displayScreen === 'logistics' && <LogisticsDashboard setScreen={setScreen} simMode={simMode} />}
-					{displayScreen === 'shipments' && <LiveShipmentsScreen />}
-					{displayScreen === 'drivers' && (activeTab === 'drivers' ? <DriverPoolScreen /> : <DriversPanel setScreen={setScreen} />)}
-					{displayScreen === 'optimize' && <AIOptimizerScreen />}
-					{displayScreen === 'alerts' && <RiskAlertsScreen />}
+			<div style={{ color: T.white, padding: '0 32px 28px 32px' }}>
+				<div style={{ display: 'flex', gap: 24 }}>
+					<NavSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+					<div style={{ flex: 1 }}>
+						{displayScreen === 'logistics' && <LogisticsDashboard setScreen={setScreen} simMode={simMode} />}
+						{displayScreen === 'shipments' && <LiveShipmentsScreen />}
+						{displayScreen === 'drivers' && (activeTab === 'drivers' ? <DriverPoolScreen /> : <DriversPanel setScreen={setScreen} />)}
+						{displayScreen === 'optimize' && <AIOptimizerScreen />}
+						{displayScreen === 'alerts' && <RiskAlertsScreen />}
+					</div>
 				</div>
 			</div>
 		</>

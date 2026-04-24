@@ -38,3 +38,10 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 email-validator>=2.0.0
 python-dateutil==2.8.2
+
+# Maritime Sea Routing (marnet GeoPackage network)
+networkx>=3.2
+geopandas>=0.14.0
+shapely>=2.0.0
+pyogrio>=0.7.0
+pyproj>=3.6.0

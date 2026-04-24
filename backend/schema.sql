@@ -14,6 +14,14 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- DROP TABLES (for clean re-creation — comment out in production!)
 -- =============================================================================
 DROP TABLE IF EXISTS delivery_confirmations  CASCADE;
+DROP TABLE IF EXISTS quote_to_shipment       CASCADE;
+DROP TABLE IF EXISTS negotiation_messages    CASCADE;
+DROP TABLE IF EXISTS quote_offers            CASCADE;
+DROP TABLE IF EXISTS quote_requests          CASCADE;
+DROP TABLE IF EXISTS logistics_service_lanes CASCADE;
+DROP TABLE IF EXISTS verification_otps       CASCADE;
+DROP TABLE IF EXISTS user_documents          CASCADE;
+DROP TABLE IF EXISTS company_profiles        CASCADE;
 DROP TABLE IF EXISTS manager_decisions       CASCADE;
 DROP TABLE IF EXISTS model_predictions       CASCADE;
 DROP TABLE IF EXISTS status_updates          CASCADE;
@@ -98,6 +106,21 @@ DO $$ BEGIN
     EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE account_type AS ENUM ('individual','company');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE quote_request_status AS ENUM ('draft','sent','negotiating','accepted','rejected','expired','cancelled');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE quote_offer_status AS ENUM ('active','countered','withdrawn','accepted','rejected','expired');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 
 -- =============================================================================
 -- TABLE: users
@@ -108,9 +131,16 @@ CREATE TABLE IF NOT EXISTS users (
     email          VARCHAR(100) UNIQUE NOT NULL,
     password_hash  VARCHAR(255) NOT NULL,
     role           user_role    NOT NULL,
+    account_type   account_type,
     company_name   VARCHAR(100),
     phone_number   VARCHAR(20),
     country        VARCHAR(50),
+    email_verified BOOLEAN      NOT NULL DEFAULT FALSE,
+    phone_verified BOOLEAN      NOT NULL DEFAULT FALSE,
+    tos_accepted   BOOLEAN      NOT NULL DEFAULT FALSE,
+    privacy_accepted BOOLEAN    NOT NULL DEFAULT FALSE,
+    shipping_terms_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+    onboarding_completed_at TIMESTAMPTZ,
     is_active      BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -119,6 +149,63 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role  ON users(role);
+
+
+-- =============================================================================
+-- TABLE: company_profiles
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS company_profiles (
+    company_profile_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id               UUID NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
+    company_type          VARCHAR(50),
+    registration_number   VARCHAR(100),
+    tax_vat_number        VARCHAR(100),
+    hq_address            TEXT,
+    website               VARCHAR(255),
+    contact_name          VARCHAR(120),
+    contact_designation   VARCHAR(80),
+    typical_cargo         VARCHAR(100),
+    monthly_volume_band   VARCHAR(30),
+    preferred_ports       JSONB,
+    verification_status   VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
+-- =============================================================================
+-- TABLE: user_documents
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS user_documents (
+    document_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id          UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    doc_type         VARCHAR(40) NOT NULL,
+    file_url         TEXT NOT NULL,
+    review_status    VARCHAR(20) NOT NULL DEFAULT 'pending',
+    reviewed_by      UUID REFERENCES users(user_id),
+    reviewed_at      TIMESTAMPTZ,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_documents_user ON user_documents(user_id);
+
+
+-- =============================================================================
+-- TABLE: verification_otps
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS verification_otps (
+    otp_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id        UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    channel        VARCHAR(20) NOT NULL,
+    destination    VARCHAR(120) NOT NULL,
+    otp_hash       VARCHAR(255) NOT NULL,
+    expires_at     TIMESTAMPTZ NOT NULL,
+    consumed_at    TIMESTAMPTZ,
+    attempt_count  INTEGER NOT NULL DEFAULT 0,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_verification_otps_user ON verification_otps(user_id);
 
 
 -- =============================================================================
@@ -262,6 +349,27 @@ CREATE INDEX IF NOT EXISTS idx_routes_active   ON routes(is_active);
 
 
 -- =============================================================================
+-- TABLE: logistics_service_lanes
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS logistics_service_lanes (
+    lane_id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_user_id      UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    origin_port_id        UUID NOT NULL REFERENCES ports(port_id),
+    destination_port_id   UUID NOT NULL REFERENCES ports(port_id),
+    service_mode          VARCHAR(30) NOT NULL DEFAULT 'sea',
+    min_transit_days      INTEGER,
+    max_transit_days      INTEGER,
+    base_price_usd        NUMERIC(12,2),
+    price_per_kg_usd      NUMERIC(12,4),
+    active                BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(provider_user_id, origin_port_id, destination_port_id, service_mode)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lanes_provider ON logistics_service_lanes(provider_user_id);
+
+
+-- =============================================================================
 -- TABLE: alerts
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS alerts (
@@ -283,6 +391,96 @@ CREATE TABLE IF NOT EXISTS alerts (
 CREATE INDEX IF NOT EXISTS idx_alerts_shipment  ON alerts(shipment_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_resolved  ON alerts(is_resolved);
 CREATE INDEX IF NOT EXISTS idx_alerts_severity  ON alerts(severity);
+
+
+-- =============================================================================
+-- TABLE: quote_requests
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS quote_requests (
+    request_id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shipper_id            UUID NOT NULL REFERENCES users(user_id),
+    receiver_id           UUID NOT NULL REFERENCES users(user_id),
+    origin_port_id        UUID NOT NULL REFERENCES ports(port_id),
+    destination_port_id   UUID NOT NULL REFERENCES ports(port_id),
+    pickup_address        TEXT NOT NULL,
+    dropoff_address       TEXT,
+    cargo_type            cargo_type,
+    quantity              INTEGER,
+    weight_kg             NUMERIC,
+    volume_cbm            NUMERIC,
+    special_instructions  TEXT,
+    status                quote_request_status NOT NULL DEFAULT 'draft',
+    selected_offer_id     UUID,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_quote_requests_shipper ON quote_requests(shipper_id);
+CREATE INDEX IF NOT EXISTS idx_quote_requests_status  ON quote_requests(status);
+
+
+-- =============================================================================
+-- TABLE: quote_offers
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS quote_offers (
+    offer_id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_id             UUID NOT NULL REFERENCES quote_requests(request_id) ON DELETE CASCADE,
+    provider_user_id       UUID NOT NULL REFERENCES users(user_id),
+    lane_id                UUID REFERENCES logistics_service_lanes(lane_id),
+    offered_amount_usd     NUMERIC(12,2) NOT NULL,
+    currency               VARCHAR(10) NOT NULL DEFAULT 'USD',
+    estimated_pickup_at    TIMESTAMPTZ,
+    estimated_delivery_at  TIMESTAMPTZ,
+    notes                  TEXT,
+    status                 quote_offer_status NOT NULL DEFAULT 'active',
+    valid_until            TIMESTAMPTZ,
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_quote_requests_selected_offer'
+    ) THEN
+        ALTER TABLE quote_requests
+            ADD CONSTRAINT fk_quote_requests_selected_offer
+            FOREIGN KEY (selected_offer_id) REFERENCES quote_offers(offer_id);
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_quote_offers_request ON quote_offers(request_id);
+CREATE INDEX IF NOT EXISTS idx_quote_offers_provider ON quote_offers(provider_user_id);
+
+
+-- =============================================================================
+-- TABLE: negotiation_messages
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS negotiation_messages (
+    message_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_id           UUID NOT NULL REFERENCES quote_requests(request_id) ON DELETE CASCADE,
+    offer_id             UUID REFERENCES quote_offers(offer_id) ON DELETE SET NULL,
+    sender_user_id       UUID NOT NULL REFERENCES users(user_id),
+    message_type         VARCHAR(20) NOT NULL DEFAULT 'text',
+    body                 TEXT,
+    counter_amount_usd   NUMERIC(12,2),
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_negotiation_request ON negotiation_messages(request_id);
+
+
+-- =============================================================================
+-- TABLE: quote_to_shipment
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS quote_to_shipment (
+    mapping_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_id    UUID NOT NULL UNIQUE REFERENCES quote_requests(request_id) ON DELETE CASCADE,
+    offer_id      UUID NOT NULL REFERENCES quote_offers(offer_id),
+    shipment_id   UUID NOT NULL UNIQUE REFERENCES shipments(shipment_id) ON DELETE CASCADE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 
 -- =============================================================================

@@ -1,7 +1,7 @@
-﻿from datetime import datetime
+from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.cargo import CargoType
 from app.models.shipment import PriorityLevel, RiskLevel, ShipmentStatus
@@ -28,6 +28,7 @@ class ShipmentCreate(BaseModel):
 	departure_time: datetime
 	expected_arrival: datetime
 	receiver_id: str
+	assigned_manager_id: str | None = None
 	priority_level: PriorityLevel = PriorityLevel.MEDIUM
 	special_instructions: str | None = None
 	cargo: CargoCreate
@@ -64,6 +65,16 @@ class ShipmentResponse(BaseModel):
 
 	model_config = ConfigDict(from_attributes=True)
 
+	@field_validator(
+		'shipment_id', 'shipper_id', 'receiver_id',
+		'assigned_manager_id', 'assigned_driver_id', 'assigned_vessel_id',
+		'origin_port_id', 'destination_port_id',
+		mode='before',
+	)
+	@classmethod
+	def uuid_to_str(cls, v):
+		return str(v) if v is not None else v
+
 
 class ShipmentDetailResponse(ShipmentResponse):
 	shipper_name: str
@@ -73,10 +84,13 @@ class ShipmentDetailResponse(ShipmentResponse):
 	vessel_name: str | None = None
 	origin_port_name: str
 	destination_port_name: str
+	route_waypoints: list[CoordinatesSchema] = Field(default_factory=list)
+	original_route_waypoints: list[dict] = Field(default_factory=list)
 	cargo_type: CargoType
 	cargo_description: str
 	declared_value: Decimal | None = None
 	cargo_sensitivity_score: Decimal | None = None
+	status_history: list[dict] = Field(default_factory=list)
 
 
 class StatusUpdateRequest(BaseModel):

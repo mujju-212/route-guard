@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     TOMTOM_API_KEY: str = ""
     STORMGLASS_API_KEY: str = ""
     OPENROUTESERVICE_API_KEY: str = ""
+    WORLDWEATHERONLINE_API_KEY: str = ""
 
     # ── Monitoring ────────────────────────────────────────────────────────────
     MONITORING_INTERVAL_MINUTES: int = 30

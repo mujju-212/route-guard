@@ -1,7 +1,7 @@
-﻿from datetime import datetime
+from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.models.alert import AlertSeverity, AlertType
 
@@ -21,6 +21,11 @@ class AlertResponse(BaseModel):
 	created_at: datetime
 
 	model_config = ConfigDict(from_attributes=True)
+
+	@field_validator('alert_id', 'shipment_id', mode='before')
+	@classmethod
+	def uuid_to_str(cls, v):
+		return str(v) if v is not None else v
 
 
 class AlertResolveRequest(BaseModel):

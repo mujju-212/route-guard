@@ -1,4 +1,5 @@
 ﻿from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -21,7 +22,7 @@ class UserRegister(BaseModel):
 
 
 class UserResponse(BaseModel):
-	user_id: str
+	user_id: UUID
 	full_name: str
 	email: str
 	role: UserRole

@@ -19,32 +19,32 @@ from app.routers import alerts, analytics, auth, driver, manager, monitoring, sh
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ────────────────────────────────────────────────────────────────
-    print("🚀 RouteGuard API Starting (PostgreSQL-only mode)...")
+    print("[START] RouteGuard API Starting (PostgreSQL-only mode)...")
 
     # Create all PostgreSQL tables from ORM models
     try:
         Base.metadata.create_all(bind=engine)
-        print("✅ PostgreSQL tables created / verified")
+        print("[OK] PostgreSQL tables created / verified")
     except Exception as exc:
-        print(f"❌ PostgreSQL connection failed: {exc}")
-        print("   → Make sure PostgreSQL is running and credentials are correct.")
-        print(f"   → Connection: postgresql://{settings.POSTGRES_USER}:***@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}")
+        print(f"[ERR] PostgreSQL connection failed: {exc}")
+        print("   -> Make sure PostgreSQL is running and credentials are correct.")
+        print(f"   -> Connection: postgresql://{settings.POSTGRES_USER}:***@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}")
         raise
 
     # Start background monitoring scheduler
     try:
         from app.background.monitoring_job import start_monitoring_scheduler
         start_monitoring_scheduler()
-        print(f"✅ Monitoring scheduler started (every {settings.MONITORING_INTERVAL_MINUTES} min)")
+        print(f"[OK] Monitoring scheduler started (every {settings.MONITORING_INTERVAL_MINUTES} min)")
     except Exception as exc:
-        print(f"⚠️  Monitoring scheduler failed to start: {exc}")
+        print(f"[WARN] Monitoring scheduler failed to start: {exc}")
 
-    print("✅ RouteGuard API ready → Swagger UI: http://localhost:8000/docs")
+    print("[OK] RouteGuard API ready -> Swagger UI: http://localhost:8000/docs")
 
     yield
 
     # ── Shutdown ───────────────────────────────────────────────────────────────
-    print("🛑 RouteGuard API shutting down...")
+    print("[STOP] RouteGuard API shutting down...")
 
 
 # ── Application factory ────────────────────────────────────────────────────────
@@ -64,13 +64,18 @@ app = FastAPI(
 )
 
 # ── CORS ────────────────────────────────────────────────────────────────────────
+# In development: allow all origins so frontend (port 5173) is never blocked.
+# In production: restrict to settings.CORS_ORIGINS_LIST
+_cors_origins = ["*"] if settings.DEBUG else settings.CORS_ORIGINS_LIST
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS_LIST,
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=False if "*" in _cors_origins else True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ── API Routers ─────────────────────────────────────────────────────────────────
 app.include_router(auth.router,       prefix="/auth",      tags=["🔐 Authentication"])

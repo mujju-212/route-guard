@@ -1,4 +1,4 @@
-﻿from decimal import Decimal
+from decimal import Decimal
 
 from pydantic import BaseModel
 
@@ -14,6 +14,7 @@ class AnalyticsOverview(BaseModel):
 	rerouted_this_week: int
 	total_value_monitored_usd: Decimal
 	financial_losses_prevented_usd: Decimal
+	risk_history_7_days: list[dict] = []
 
 
 class ModelAccuracy(BaseModel):

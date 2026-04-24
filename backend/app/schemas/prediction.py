@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -24,6 +24,7 @@ class AlternateRoute(BaseModel):
 	extra_cost_usd: Decimal
 	optimization_score: Decimal
 	recommended: bool
+	waypoints: list[dict] = []
 
 
 class FinancialImpact(BaseModel):

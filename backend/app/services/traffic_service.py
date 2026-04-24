@@ -20,16 +20,23 @@ async def fetch_traffic_data(lat: float, lng: float) -> dict:
 			response = await client.get(url, params=params)
 			response.raise_for_status()
 			flow = response.json().get('flowSegmentData', {})
+			incidents_raw = flow.get('incidents') or []
+			if isinstance(incidents_raw, dict):
+				incidents = [incidents_raw]
+			elif isinstance(incidents_raw, list):
+				incidents = incidents_raw
+			else:
+				incidents = []
 			return {
 				'currentSpeed': flow.get('currentSpeed', 70),
 				'freeFlowSpeed': flow.get('freeFlowSpeed', 90),
 				'roadClosure': flow.get('roadClosure', False),
-				'incidents': flow.get('frc', []),
+				'incidents': incidents,
 			}
 		except Exception:
 			return {
 				'currentSpeed': 45,
 				'freeFlowSpeed': 80,
 				'roadClosure': False,
-				'incidents': [1],
+				'incidents': [],
 			}

@@ -137,9 +137,20 @@ async def get_routes(shipment_id: str, current_user: User = Depends(get_current_
 		else None,
 	)
 
+	# Active route distance is the baseline for extra_distance_km calculation
+	active_route = next((r for r in shipment.routes if r.is_active), None)
+	if active_route is None and shipment.routes:
+		active_route = shipment.routes[0]
+	base_dist_km = float(active_route.total_distance_km) if active_route and active_route.total_distance_km else None
+
 	results: list[AlternateRoute] = []
 	for route in alternates:
-		scored = await score_alternate_route(shipment_id=shipment_id, route_waypoints=route['waypoints'], db=db)
+		scored = await score_alternate_route(
+			shipment_id=shipment_id,
+			route_waypoints=route['waypoints'],
+			db=db,
+			base_distance_km=base_dist_km,
+		)
 		if not scored:
 			continue
 		scored['name'] = route['name']
@@ -158,6 +169,9 @@ async def get_routes(shipment_id: str, current_user: User = Depends(get_current_
 				optimization_score=Decimal(str(scored['optimization_score'])),
 				recommended=bool(scored['recommended']),
 				waypoints=scored.get('waypoints', []),
+				from_current=bool(route.get('from_current', False)),
+				start_lat=route.get('start_lat'),
+				start_lon=route.get('start_lon'),
 			)
 		)
 

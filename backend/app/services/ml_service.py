@@ -274,32 +274,24 @@ async def run_complete_ml_pipeline(shipment_id: str, db, current_coords: tuple[f
 		current_coords=coords,
 	)
 
+	# Compute base route distance once so all alternates compare against the same baseline
+	base_dist_km: float | None = None
+	if active_route and active_route.total_distance_km:
+		base_dist_km = float(active_route.total_distance_km)
+
 	scored_routes: list[dict[str, Any]] = []
-	alternate_types = [RouteType.ALTERNATE_1, RouteType.ALTERNATE_2, RouteType.ALTERNATE_3]
 	for idx, route in enumerate(alternate_candidates):
-		scored = await score_alternate_route(str(shipment.shipment_id), route['waypoints'], db)
+		scored = await score_alternate_route(
+			str(shipment.shipment_id),
+			route['waypoints'],
+			db,
+			base_distance_km=base_dist_km,
+		)
 		if not scored:
 			continue
 		scored['name'] = route.get('name', scored['name'])
 		scored['description'] = route.get('description', scored['description'])
-
-		# Persist to DB so the approve endpoint can find it
-		db_route = Route(
-			shipment_id=shipment.shipment_id,
-			route_type=alternate_types[idx] if idx < len(alternate_types) else RouteType.ALTERNATE_1,
-			is_active=False,
-			origin_port_id=shipment.origin_port_id,
-			destination_port_id=shipment.destination_port_id,
-			total_distance_km=float(scored.get('extra_distance_km', 0)),
-			estimated_duration_hr=float(scored.get('extra_time_hours', 0)),
-			estimated_fuel_cost=float(scored.get('extra_cost_usd', 0)),
-			waypoints=route['waypoints'],
-			risk_score_at_creation=float(scored['risk_score']),
-		)
-		db.add(db_route)
-		db.flush()
-		scored['route_id'] = str(db_route.route_id)
-		scored['waypoints'] = route['waypoints']
+		# score_alternate_route already persisted the Route; just capture it
 		scored_routes.append(scored)
 
 	db.commit()

@@ -25,6 +25,10 @@ class AlternateRoute(BaseModel):
 	optimization_score: Decimal
 	recommended: bool
 	waypoints: list[dict] = []
+	# Rerouting context — routes start from current vessel position
+	from_current: bool = False
+	start_lat: float | None = None
+	start_lon: float | None = None
 
 
 class FinancialImpact(BaseModel):
@@ -43,3 +47,4 @@ class MLPredictionResponse(BaseModel):
 	feature_importance: FeatureImportance
 	alternate_routes: list[AlternateRoute]
 	financial_impact: FinancialImpact
+	risk_trajectory: list[float] = []   # LSTM 6-hour risk forecast

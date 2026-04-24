@@ -5,8 +5,26 @@ from app.database.postgres import get_db
 from app.dependencies import get_current_user
 from app.models.port import Port
 from app.models.user import User, UserRole
-from app.schemas.auth import TokenResponse, UserLogin, UserRegister, UserResponse
-from app.services.auth_service import authenticate_user, register_user
+from app.schemas.auth import (
+	AcceptLegalRequest,
+	OnboardingStatusResponse,
+	SendOTPRequest,
+	TokenResponse,
+	UploadDocumentRequest,
+	UserLogin,
+	UserRegister,
+	UserResponse,
+	VerifyOTPRequest,
+)
+from app.services.auth_service import (
+	authenticate_user,
+	create_and_store_otp,
+	legal_flags_complete,
+	otp_preview,
+	register_user,
+	save_document_reference,
+	verify_stored_otp,
+)
 
 router = APIRouter()
 
@@ -24,6 +42,60 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
 @router.get('/me', response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
 	return UserResponse.model_validate(current_user)
+
+
+@router.post('/send-otp')
+async def send_otp(payload: SendOTPRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+	channel = payload.channel.strip().lower()
+	if channel not in {'email', 'phone'}:
+		return {'ok': False, 'detail': 'Invalid channel. Use email or phone.'}
+	otp = create_and_store_otp(db, current_user, channel, payload.destination)
+	return {'ok': True, 'channel': channel, 'otp_hint': otp_preview(otp)}
+
+
+@router.post('/verify-otp')
+async def verify_otp(payload: VerifyOTPRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+	channel = payload.channel.strip().lower()
+	ok = verify_stored_otp(db, current_user, channel, payload.code)
+	return {'ok': ok, 'channel': channel}
+
+
+@router.post('/accept-legal', response_model=OnboardingStatusResponse)
+async def accept_legal(payload: AcceptLegalRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+	current_user.tos_accepted = payload.tos_accepted
+	current_user.privacy_accepted = payload.privacy_accepted
+	current_user.shipping_terms_accepted = payload.shipping_terms_accepted
+	db.commit()
+	db.refresh(current_user)
+	return OnboardingStatusResponse(
+		email_verified=current_user.email_verified,
+		phone_verified=current_user.phone_verified,
+		tos_accepted=current_user.tos_accepted,
+		privacy_accepted=current_user.privacy_accepted,
+		shipping_terms_accepted=current_user.shipping_terms_accepted,
+		onboarding_completed=bool(current_user.onboarding_completed_at),
+	)
+
+
+@router.post('/upload-document')
+async def upload_document(payload: UploadDocumentRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+	doc = save_document_reference(db, current_user, payload.doc_type, payload.file_url)
+	return {'ok': True, 'document_id': str(doc.document_id), 'doc_type': doc.doc_type, 'review_status': doc.review_status}
+
+
+@router.get('/onboarding-status', response_model=OnboardingStatusResponse)
+async def onboarding_status(current_user: User = Depends(get_current_user)):
+	return OnboardingStatusResponse(
+		email_verified=current_user.email_verified,
+		phone_verified=current_user.phone_verified,
+		tos_accepted=current_user.tos_accepted,
+		privacy_accepted=current_user.privacy_accepted,
+		shipping_terms_accepted=current_user.shipping_terms_accepted,
+		onboarding_completed=bool(
+			current_user.onboarding_completed_at
+			or (current_user.email_verified and current_user.phone_verified and legal_flags_complete(current_user))
+		),
+	)
 
 
 @router.get('/receivers', response_model=list[UserResponse])

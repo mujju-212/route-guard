@@ -1,4 +1,4 @@
-﻿import {
+import {
 	Anchor,
 	BarChart3,
 	Bell,
@@ -29,12 +29,12 @@ const ICON_MAP = {
 const NAV_CONFIG = {
 	manager: [
 		{ label: 'Control Center', icon: 'LayoutDashboard', path: '/manager' },
-		{ label: 'Port Status', icon: 'Anchor', path: '/manager/ports' },
+		{ label: 'Consignments', icon: 'Package', path: '/manager?tab=consignments' },
 		{ label: 'Analytics', icon: 'BarChart3', path: '/manager/analytics' },
 	],
 	shipper: [
 		{ label: 'My Shipments', icon: 'Package', path: '/shipper' },
-		{ label: 'Create Shipment', icon: 'PackagePlus', path: '/shipper/create' },
+		{ label: 'Send Package', icon: 'PackagePlus', path: '/shipper/create' },
 	],
 	driver: [
 		{ label: 'My Assignment', icon: 'Truck', path: '/driver' },

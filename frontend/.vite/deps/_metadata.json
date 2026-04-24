@@ -1,104 +1,95 @@
 {
-  "hash": "84363f01",
-  "browserHash": "bec776c7",
+  "hash": "d4035fa0",
+  "browserHash": "a5d359cb",
   "optimized": {
     "react": {
       "src": "../../node_modules/react/index.js",
       "file": "react.js",
-      "fileHash": "c270e1d4",
+      "fileHash": "65cfbf6a",
       "needsInterop": true
     },
     "react-dom": {
       "src": "../../node_modules/react-dom/index.js",
       "file": "react-dom.js",
-      "fileHash": "f9c00427",
+      "fileHash": "0acda40b",
       "needsInterop": true
     },
     "react/jsx-dev-runtime": {
       "src": "../../node_modules/react/jsx-dev-runtime.js",
       "file": "react_jsx-dev-runtime.js",
-      "fileHash": "08b1de61",
+      "fileHash": "aca47c80",
       "needsInterop": true
     },
     "react/jsx-runtime": {
       "src": "../../node_modules/react/jsx-runtime.js",
       "file": "react_jsx-runtime.js",
-      "fileHash": "c37badac",
+      "fileHash": "7b5ff6cb",
       "needsInterop": true
     },
     "axios": {
       "src": "../../node_modules/axios/index.js",
       "file": "axios.js",
-      "fileHash": "2ed0b7d5",
+      "fileHash": "d4b08a6e",
       "needsInterop": false
     },
     "date-fns": {
       "src": "../../node_modules/date-fns/esm/index.js",
       "file": "date-fns.js",
-      "fileHash": "47124eab",
+      "fileHash": "b43cda46",
       "needsInterop": false
-    },
-    "leaflet": {
-      "src": "../../node_modules/leaflet/dist/leaflet-src.js",
-      "file": "leaflet.js",
-      "fileHash": "1f2daef8",
-      "needsInterop": true
     },
     "lucide-react": {
       "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
       "file": "lucide-react.js",
-      "fileHash": "5b7e5a69",
+      "fileHash": "d44cec1f",
       "needsInterop": false
     },
     "react-dom/client": {
       "src": "../../node_modules/react-dom/client.js",
       "file": "react-dom_client.js",
-      "fileHash": "23c7489e",
+      "fileHash": "a27029c7",
       "needsInterop": true
     },
     "react-hot-toast": {
       "src": "../../node_modules/react-hot-toast/dist/index.mjs",
       "file": "react-hot-toast.js",
-      "fileHash": "dc049810",
+      "fileHash": "4ee7eea3",
       "needsInterop": false
     },
     "react-leaflet": {
       "src": "../../node_modules/react-leaflet/lib/index.js",
       "file": "react-leaflet.js",
-      "fileHash": "7bd7a8bb",
+      "fileHash": "1010f21b",
       "needsInterop": false
     },
     "react-router-dom": {
       "src": "../../node_modules/react-router-dom/dist/index.js",
       "file": "react-router-dom.js",
-      "fileHash": "1133598f",
+      "fileHash": "6be94035",
       "needsInterop": false
     },
     "recharts": {
       "src": "../../node_modules/recharts/es6/index.js",
       "file": "recharts.js",
-      "fileHash": "263ce5eb",
+      "fileHash": "54575301",
       "needsInterop": false
     },
     "socket.io-client": {
       "src": "../../node_modules/socket.io-client/build/esm/index.js",
       "file": "socket__io-client.js",
-      "fileHash": "694e747d",
+      "fileHash": "78933d82",
       "needsInterop": false
     }
   },
   "chunks": {
-    "chunk-WXUDCTVF": {
-      "file": "chunk-WXUDCTVF.js"
-    },
-    "chunk-2IVU3Q24": {
-      "file": "chunk-2IVU3Q24.js"
-    },
     "chunk-EI554WWR": {
       "file": "chunk-EI554WWR.js"
     },
     "chunk-XMMJGW5B": {
       "file": "chunk-XMMJGW5B.js"
+    },
+    "chunk-WXUDCTVF": {
+      "file": "chunk-WXUDCTVF.js"
     },
     "chunk-5WWUZCGV": {
       "file": "chunk-5WWUZCGV.js"

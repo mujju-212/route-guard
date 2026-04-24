@@ -1,69 +1,112 @@
-﻿import { createContext, useEffect, useMemo, useState } from 'react';
-import { io } from 'socket.io-client';
+/**
+ * SocketContext.jsx
+ *
+ * Uses the backend's native FastAPI WebSocket at /ws/{user_id}
+ * (NOT Socket.IO — the backend has no Socket.IO server).
+ *
+ * Silently no-ops when backend is unreachable (hackathon demo mode).
+ */
+import { createContext, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { SOCKET_URL } from '../config/api';
+import { BASE_URL } from '../config/api';
 import { useAuth } from '../hooks/useAuth';
 
 export const SocketContext = createContext(null);
 
+function getWsUrl(baseUrl, userId) {
+	// Convert http://localhost:8000 → ws://localhost:8000/ws/{userId}
+	const wsBase = baseUrl.replace(/^https/, 'wss').replace(/^http/, 'ws');
+	return `${wsBase}/ws/${userId}`;
+}
+
 export function SocketProvider({ children }) {
-	const { token } = useAuth();
-	const [socket, setSocket] = useState(null);
+	const { token, user } = useAuth();
+	const wsRef = useRef(null);
 	const [riskUpdates, setRiskUpdates] = useState({});
 	const [newAlerts, setNewAlerts] = useState([]);
+	const [connected, setConnected] = useState(false);
 
 	useEffect(() => {
-		if (!token) {
-			setSocket(null);
+		// Need both a token AND a user id to open the connection
+		if (!token || !user?.user_id) {
+			if (wsRef.current) {
+				wsRef.current.close();
+				wsRef.current = null;
+			}
+			setConnected(false);
 			return;
 		}
 
-		const nextSocket = io(SOCKET_URL, { auth: { token }, reconnectionAttempts: 5 });
+		const url = getWsUrl(BASE_URL, user.user_id);
+		let ws;
+		let dead = false; // flag so we don't re-open after cleanup
 
-		nextSocket.on('connect', () => {
-			// keep silent in UI, useful for local diagnostics
-			console.log('[socket] connected');
-		});
-
-		nextSocket.on('disconnect', () => {
-			console.log('[socket] disconnected');
-		});
-
-		nextSocket.on('risk_update', (payload) => {
-			setRiskUpdates((prev) => ({ ...prev, [payload.shipment_id]: payload }));
-			if (payload.risk_level === 'critical') {
-				toast.error(`CRITICAL: ${payload.shipment_id} - ${payload.message || 'Immediate attention required'}`, {
-					duration: 8000,
-				});
-			} else if (payload.risk_level === 'high') {
-				toast(`HIGH RISK: ${payload.shipment_id} - score ${payload.risk_score || '--'}`, {
-					duration: 5000,
-				});
+		const connect = () => {
+			if (dead) return;
+			try {
+				ws = new WebSocket(url);
+				wsRef.current = ws;
+			} catch {
+				// WebSocket not available or invalid URL — silently abort
+				return;
 			}
-		});
 
-		nextSocket.on('new_alert', (payload) => {
-			setNewAlerts((prev) => [payload, ...prev]);
-		});
+			ws.onopen = () => {
+				setConnected(true);
+				console.log('[ws] connected to', url);
+			};
 
-		nextSocket.on('route_changed', (payload) => {
-			toast.success(`Route updated for ${payload.shipment_id}. Check your panel.`, { duration: 6000 });
-		});
+			ws.onmessage = (event) => {
+				let msg;
+				try { msg = JSON.parse(event.data); } catch { return; }
 
-		setSocket(nextSocket);
+				const { event: evtName, payload = {} } = msg;
+
+				if (evtName === 'risk_update') {
+					setRiskUpdates((prev) => ({ ...prev, [msg.shipment_id]: msg.payload }));
+					if (payload.risk_level === 'critical') {
+						toast.error(`CRITICAL: ${msg.shipment_id} — ${payload.message || 'Immediate attention required'}`, { duration: 8000 });
+					} else if (payload.risk_level === 'high') {
+						toast(`HIGH RISK: ${msg.shipment_id} — score ${payload.risk_score ?? '—'}`, { duration: 5000 });
+					}
+				}
+
+				if (evtName === 'new_alert') {
+					setNewAlerts((prev) => [payload, ...prev]);
+				}
+
+				if (evtName === 'route_changed') {
+					toast.success(`Route updated for ${msg.shipment_id}. Check your panel.`, { duration: 6000 });
+				}
+			};
+
+			ws.onclose = () => {
+				setConnected(false);
+				wsRef.current = null;
+				// Reconnect after 5 s unless component unmounted
+				if (!dead) setTimeout(connect, 5000);
+			};
+
+			ws.onerror = () => {
+				// Silently ignore — onclose will fire next and handle reconnect
+			};
+		};
+
+		connect();
 
 		return () => {
-			nextSocket.disconnect();
+			dead = true;
+			if (wsRef.current) {
+				wsRef.current.close();
+				wsRef.current = null;
+			}
+			setConnected(false);
 		};
-	}, [token]);
+	}, [token, user?.user_id]);
 
 	const value = useMemo(
-		() => ({
-			socket,
-			riskUpdates,
-			newAlerts,
-		}),
-		[socket, riskUpdates, newAlerts]
+		() => ({ connected, riskUpdates, newAlerts }),
+		[connected, riskUpdates, newAlerts]
 	);
 
 	return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;

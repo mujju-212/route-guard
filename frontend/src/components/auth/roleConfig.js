@@ -42,8 +42,8 @@ export const AUTH_ROLES = {
 export const AUTH_ROLE_ORDER = ['receiver', 'shipper', 'manager', 'driver'];
 
 export const DEMO_ACCOUNTS = [
-	{ role: 'shipper', email: 'shipper@routeguard.com', password: 'test1234' },
-	{ role: 'manager', email: 'manager@routeguard.com', password: 'test1234' },
-	{ role: 'driver', email: 'driver@routeguard.com', password: 'test1234' },
-	{ role: 'receiver', email: 'receiver@routeguard.com', password: 'test1234' },
+	{ role: 'manager',  email: 'manager@routeguard.com',  password: 'RouteGuard@2024' },
+	{ role: 'shipper',  email: 'shipper@routeguard.com',  password: 'RouteGuard@2024' },
+	{ role: 'driver',   email: 'driver@routeguard.com',   password: 'RouteGuard@2024' },
+	{ role: 'receiver', email: 'receiver@routeguard.com', password: 'RouteGuard@2024' },
 ];

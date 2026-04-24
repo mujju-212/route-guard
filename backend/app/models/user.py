@@ -1,4 +1,4 @@
-﻿import enum
+import enum
 import uuid
 
 from sqlalchemy import Boolean, Column, DateTime, Enum as SQLEnum, String
@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from app.database.postgres import Base
+from app.models.enum_utils import enum_values
 
 
 class UserRole(str, enum.Enum):
@@ -22,7 +23,7 @@ class User(Base):
 	full_name = Column(String(100), nullable=False)
 	email = Column(String(100), unique=True, nullable=False, index=True)
 	password_hash = Column(String(255), nullable=False)
-	role = Column(SQLEnum(UserRole), nullable=False, index=True)
+	role = Column(SQLEnum(UserRole, values_callable=enum_values, name='user_role'), nullable=False, index=True)
 	company_name = Column(String(100), nullable=True)
 	phone_number = Column(String(20), nullable=True)
 	country = Column(String(50), nullable=True)

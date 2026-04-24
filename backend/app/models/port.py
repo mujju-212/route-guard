@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from app.database.postgres import Base
+from app.models.enum_utils import enum_values
 
 
 class PortType(str, enum.Enum):
@@ -25,7 +26,7 @@ class Port(Base):
 	latitude = Column(Numeric(10, 7), nullable=False)
 	longitude = Column(Numeric(10, 7), nullable=False)
 	max_vessel_draft = Column(Numeric, nullable=True)
-	port_type = Column(SQLEnum(PortType), default=PortType.SEA)
+	port_type = Column(SQLEnum(PortType, values_callable=enum_values, name='port_type'), default=PortType.SEA)
 	operating_hours = Column(String(50), nullable=True)
 	customs_present = Column(Boolean, default=True)
 	created_at = Column(DateTime(timezone=True), server_default=func.now())

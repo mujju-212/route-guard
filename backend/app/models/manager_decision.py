@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database.postgres import Base
+from app.models.enum_utils import enum_values
 
 
 class DecisionType(str, enum.Enum):
@@ -29,7 +30,7 @@ class ManagerDecision(Base):
 	decision_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 	shipment_id = Column(UUID(as_uuid=True), ForeignKey('shipments.shipment_id'), nullable=False)
 	manager_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id'), nullable=False)
-	decision_type = Column(SQLEnum(DecisionType), nullable=False)
+	decision_type = Column(SQLEnum(DecisionType, values_callable=enum_values, name='decision_type'), nullable=False)
 	original_route_id = Column(UUID(as_uuid=True), ForeignKey('routes.route_id'), nullable=True)
 	new_route_id = Column(UUID(as_uuid=True), ForeignKey('routes.route_id'), nullable=True)
 	risk_score_at_decision = Column(Numeric(5, 2), nullable=True)
@@ -37,7 +38,7 @@ class ManagerDecision(Base):
 	predicted_delay_on_original = Column(Numeric, nullable=True)
 	decision_reason = Column(Text, nullable=True)
 	decision_at = Column(DateTime(timezone=True), server_default=func.now())
-	outcome = Column(SQLEnum(DecisionOutcome), default=DecisionOutcome.PENDING)
+	outcome = Column(SQLEnum(DecisionOutcome, values_callable=enum_values, name='decision_outcome'), default=DecisionOutcome.PENDING)
 	actual_delay_saved_hr = Column(Numeric, nullable=True)
 
 	shipment = relationship('Shipment')

@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 
 from sqlalchemy import Column, DateTime, Numeric, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -23,5 +23,5 @@ class StatusUpdate(Base):
 	photo_url = Column(String(255), nullable=True)
 	created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-	shipment = relationship('Shipment')
+	shipment = relationship('Shipment', back_populates='status_updates')
 	user = relationship('User')

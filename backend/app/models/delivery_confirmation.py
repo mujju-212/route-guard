@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database.postgres import Base
+from app.models.enum_utils import enum_values
 
 
 class CargoCondition(str, enum.Enum):
@@ -23,7 +24,7 @@ class DeliveryConfirmation(Base):
 	shipment_id = Column(UUID(as_uuid=True), ForeignKey('shipments.shipment_id'), nullable=False)
 	confirmed_by = Column(UUID(as_uuid=True), ForeignKey('users.user_id'), nullable=False)
 	confirmed_at = Column(DateTime(timezone=True), server_default=func.now())
-	cargo_condition = Column(SQLEnum(CargoCondition), nullable=False)
+	cargo_condition = Column(SQLEnum(CargoCondition, values_callable=enum_values, name='cargo_condition'), nullable=False)
 	damage_description = Column(Text, nullable=True)
 	photo_url = Column(String(255), nullable=True)
 	digital_signature = Column(Text, nullable=True)

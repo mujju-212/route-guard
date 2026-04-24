@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.database.postgres import Base
+from app.models.enum_utils import enum_values
 from app.models.shipment import RiskLevel
 
 
@@ -26,7 +27,7 @@ class ModelPrediction(Base):
 	season = Column(Integer, nullable=True)
 
 	risk_score = Column(Numeric(5, 2), nullable=True)
-	risk_level = Column(SQLEnum(RiskLevel), nullable=True)
+	risk_level = Column(SQLEnum(RiskLevel, values_callable=enum_values, name='risk_level'), nullable=True)
 	predicted_delay_hr = Column(Numeric, nullable=True)
 	reroute_recommended = Column(Boolean, nullable=True)
 	confidence_percent = Column(Numeric(5, 2), nullable=True)

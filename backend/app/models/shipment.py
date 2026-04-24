@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database.postgres import Base
+from app.models.enum_utils import enum_values
 
 
 class ShipmentStatus(str, enum.Enum):
@@ -53,13 +54,13 @@ class Shipment(Base):
 	expected_arrival = Column(DateTime(timezone=True), nullable=False)
 	actual_arrival = Column(DateTime(timezone=True), nullable=True)
 
-	current_status = Column(SQLEnum(ShipmentStatus), default=ShipmentStatus.CREATED, index=True)
+	current_status = Column(SQLEnum(ShipmentStatus, values_callable=enum_values, name='shipment_status'), default=ShipmentStatus.CREATED, index=True)
 	current_latitude = Column(Numeric(10, 7), nullable=True)
 	current_longitude = Column(Numeric(10, 7), nullable=True)
-	current_risk_level = Column(SQLEnum(RiskLevel), nullable=True, index=True)
+	current_risk_level = Column(SQLEnum(RiskLevel, values_callable=enum_values, name='risk_level'), nullable=True, index=True)
 	current_risk_score = Column(Numeric(5, 2), nullable=True)
 
-	priority_level = Column(SQLEnum(PriorityLevel), default=PriorityLevel.MEDIUM)
+	priority_level = Column(SQLEnum(PriorityLevel, values_callable=enum_values, name='priority_level'), default=PriorityLevel.MEDIUM)
 	special_instructions = Column(Text, nullable=True)
 	is_rerouted = Column(Boolean, default=False)
 	reroute_count = Column(Integer, default=0)
@@ -78,3 +79,4 @@ class Shipment(Base):
 	cargo = relationship('Cargo', back_populates='shipment', uselist=False, cascade='all, delete-orphan')
 	routes = relationship('Route', back_populates='shipment', cascade='all, delete-orphan')
 	alerts = relationship('Alert', back_populates='shipment', cascade='all, delete-orphan')
+	status_updates = relationship('StatusUpdate', back_populates='shipment', order_by='StatusUpdate.created_at', cascade='all, delete-orphan')

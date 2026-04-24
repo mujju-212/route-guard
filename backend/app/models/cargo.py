@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database.postgres import Base
+from app.models.enum_utils import enum_values
 
 
 class CargoType(str, enum.Enum):
@@ -26,7 +27,7 @@ class Cargo(Base):
 
 	cargo_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 	shipment_id = Column(UUID(as_uuid=True), ForeignKey('shipments.shipment_id', ondelete='CASCADE'), nullable=False)
-	cargo_type = Column(SQLEnum(CargoType), nullable=False)
+	cargo_type = Column(SQLEnum(CargoType, values_callable=enum_values, name='cargo_type'), nullable=False)
 	description = Column(Text, nullable=False)
 	weight_kg = Column(Numeric, nullable=False)
 	volume_cbm = Column(Numeric, nullable=True)

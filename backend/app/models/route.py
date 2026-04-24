@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database.postgres import Base
+from app.models.enum_utils import enum_values
 
 
 class RouteType(str, enum.Enum):
@@ -22,7 +23,7 @@ class Route(Base):
 
 	route_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 	shipment_id = Column(UUID(as_uuid=True), ForeignKey('shipments.shipment_id', ondelete='CASCADE'), nullable=False, index=True)
-	route_type = Column(SQLEnum(RouteType), nullable=False)
+	route_type = Column(SQLEnum(RouteType, values_callable=enum_values, name='route_type'), nullable=False)
 	is_active = Column(Boolean, default=False, index=True)
 	origin_port_id = Column(UUID(as_uuid=True), ForeignKey('ports.port_id'), nullable=False)
 	destination_port_id = Column(UUID(as_uuid=True), ForeignKey('ports.port_id'), nullable=False)

@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database.postgres import Base
+from app.models.enum_utils import enum_values
 
 
 class VesselType(str, enum.Enum):
@@ -32,7 +33,7 @@ class Vessel(Base):
 	vessel_name = Column(String(100), nullable=False)
 	mmsi_number = Column(String(20), unique=True, nullable=True)
 	imo_number = Column(String(20), unique=True, nullable=True)
-	vessel_type = Column(SQLEnum(VesselType), nullable=False)
+	vessel_type = Column(SQLEnum(VesselType, values_callable=enum_values, name='vessel_type'), nullable=False)
 	flag_country = Column(String(50), nullable=True)
 	gross_tonnage = Column(Numeric, nullable=True)
 	deadweight = Column(Numeric, nullable=True)
@@ -40,7 +41,7 @@ class Vessel(Base):
 	max_speed = Column(Numeric, nullable=True)
 	built_year = Column(Integer, nullable=True)
 	owner_user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id'), nullable=True)
-	current_status = Column(SQLEnum(VesselStatus), default=VesselStatus.ACTIVE)
+	current_status = Column(SQLEnum(VesselStatus, values_callable=enum_values, name='vessel_status'), default=VesselStatus.ACTIVE)
 	created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 	owner = relationship('User', backref='owned_vessels')

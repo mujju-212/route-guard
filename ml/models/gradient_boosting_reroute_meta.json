@@ -1,0 +1,87 @@
+{
+  "model_type": "XGBClassifier (Gradient Boosting)",
+  "task": "reroute_decision_binary_classification",
+  "version": "1.0.0",
+  "trained_at": "2026-04-23T02:50:06.986669",
+  "split": "70/15/15 train/val/test",
+  "training_rows": 209146,
+  "val_rows": 44817,
+  "test_rows": 44817,
+  "features": [
+    "weather_score",
+    "traffic_score",
+    "port_score",
+    "historical_score",
+    "cargo_sensitivity",
+    "distance_remaining_km",
+    "time_of_day",
+    "day_of_week",
+    "season",
+    "risk_score",
+    "delay_hours"
+  ],
+  "feature_count": 11,
+  "target": "reroute_label",
+  "label_definition": "risk_score >= 55 AND delay_hours >= 1.5",
+  "class_balance": {
+    "class_0_pct": 96.37,
+    "class_1_pct": 3.63
+  },
+  "decision_threshold": 0.5,
+  "output": {
+    "reroute_recommended": "0 or 1",
+    "confidence_pct": "model.predict_proba(X)[:,1] * 100"
+  },
+  "hyperparameters": {
+    "n_estimators": 400,
+    "learning_rate": 0.05,
+    "max_depth": 5,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "min_child_weight": 3,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "scale_pos_weight": 26,
+    "objective": "binary:logistic",
+    "eval_metric": "auc",
+    "random_state": 42,
+    "n_jobs": -1,
+    "tree_method": "hist"
+  },
+  "metrics": {
+    "accuracy_pct": 99.85,
+    "precision_pct": 96.31,
+    "recall_pct": 99.63,
+    "f1_pct": 97.94,
+    "auc_roc": 1.0,
+    "confusion_matrix": [
+      [
+        43130,
+        62
+      ],
+      [
+        6,
+        1619
+      ]
+    ]
+  },
+  "feature_importances": {
+    "risk_score": 0.7901,
+    "weather_score": 0.1385,
+    "delay_hours": 0.0192,
+    "port_score": 0.0186,
+    "historical_score": 0.0184,
+    "traffic_score": 0.0089,
+    "cargo_sensitivity": 0.0052,
+    "distance_remaining_km": 0.0005,
+    "time_of_day": 0.0005,
+    "season": 0.0,
+    "day_of_week": 0.0
+  },
+  "inference_note": "Apply model.predict_proba(X)[:,1] >= threshold for final decision",
+  "data_sources": [
+    "training_dataset.csv (298,780 rows from AIS + scenario injection)",
+    "Label re-engineered: risk>=55 AND delay>=1.5h for better class balance",
+    "Class imbalance handled via scale_pos_weight + threshold tuning"
+  ]
+}

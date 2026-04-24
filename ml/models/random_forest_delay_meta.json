@@ -1,0 +1,118 @@
+{
+  "model_type": "RandomForestRegressor",
+  "task": "delay_prediction_hours",
+  "version": "1.0.0",
+  "trained_at": "2026-04-23T02:25:33.769047",
+  "split": "70/15/15 train/val/test",
+  "training_rows": 209146,
+  "val_rows": 44817,
+  "test_rows": 44817,
+  "core_features": [
+    "weather_score",
+    "traffic_score",
+    "port_score",
+    "historical_score",
+    "cargo_sensitivity",
+    "distance_remaining_km",
+    "time_of_day",
+    "day_of_week",
+    "season"
+  ],
+  "extended_features": [
+    "speed_ratio",
+    "heading_cog_diff",
+    "draft_ratio",
+    "ETA_hours",
+    "SOG_kmh",
+    "risk_score"
+  ],
+  "all_features": [
+    "weather_score",
+    "traffic_score",
+    "port_score",
+    "historical_score",
+    "cargo_sensitivity",
+    "distance_remaining_km",
+    "time_of_day",
+    "day_of_week",
+    "season",
+    "speed_ratio",
+    "heading_cog_diff",
+    "draft_ratio",
+    "ETA_hours",
+    "SOG_kmh",
+    "risk_score"
+  ],
+  "target": "delay_hours",
+  "target_transform": "log1p applied during training; expm1 at inference",
+  "output_unit": "hours",
+  "output_range": [
+    0,
+    72
+  ],
+  "delay_buckets": {
+    "none": [
+      0,
+      0.5
+    ],
+    "small": [
+      0.5,
+      4
+    ],
+    "moderate": [
+      4,
+      12
+    ],
+    "severe": [
+      12,
+      72
+    ]
+  },
+  "metrics": {
+    "val_rmse_hours": 4.5346,
+    "val_mae_hours": 2.9803,
+    "val_r2": 0.7388,
+    "test_rmse_hours": 4.5282,
+    "test_mae_hours": 2.9707,
+    "test_r2": 0.7403,
+    "oob_r2": 0.7459,
+    "within_2h_pct": 57.8,
+    "within_5h_pct": 80.48,
+    "bucket_accuracy_pct": 67.74
+  },
+  "hyperparameters": {
+    "n_estimators": 300,
+    "max_depth": 20,
+    "min_samples_split": 20,
+    "min_samples_leaf": 10,
+    "max_features": "sqrt",
+    "bootstrap": true,
+    "oob_score": true,
+    "n_jobs": -1,
+    "random_state": 42
+  },
+  "feature_importances": {
+    "weather_score": 0.2935,
+    "historical_score": 0.2176,
+    "risk_score": 0.1886,
+    "traffic_score": 0.1618,
+    "port_score": 0.0865,
+    "cargo_sensitivity": 0.023,
+    "distance_remaining_km": 0.0061,
+    "ETA_hours": 0.006,
+    "heading_cog_diff": 0.0056,
+    "SOG_kmh": 0.0049,
+    "draft_ratio": 0.0044,
+    "time_of_day": 0.002,
+    "speed_ratio": 0.0,
+    "day_of_week": 0.0,
+    "season": 0.0
+  },
+  "inference_note": "At runtime: pass risk_score from XGBoost (Model 1) as an extra feature. Apply np.expm1() to the raw model output to get delay in hours.",
+  "data_sources": [
+    "satyamrajput7913/processed_AIS_dataset.csv \u2014 actual speed vs ETA for delay ground truth",
+    "Delay computed as: max(0, dist_km/SOG_kmh - ETA_hours)",
+    "Extended with weather, port, traffic simulated features",
+    "Target log1p-transformed to handle right-skewed delay distribution"
+  ]
+}

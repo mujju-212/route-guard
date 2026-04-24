@@ -1,0 +1,14 @@
+{
+  "windspeed_mean": 17.42428861788618,
+  "windspeed_std": 7.256339548526785,
+  "sigheight_mean": 0.7394461382113822,
+  "sigheight_std": 0.23661784724692556,
+  "swellheight_mean": 0.7041463414634147,
+  "swellheight_std": 0.2193219596499203,
+  "precip_mean": 0.2920426829268292,
+  "precip_std": 1.102197747315695,
+  "humidity_mean": 76.34253048780488,
+  "humidity_std": 12.408834180079062,
+  "pressure_mean": 1017.2780995934959,
+  "pressure_std": 4.311626081147375
+}

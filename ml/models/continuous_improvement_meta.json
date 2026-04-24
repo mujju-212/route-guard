@@ -1,0 +1,71 @@
+{
+  "pipeline_name": "RouteGuard Continuous Improvement Engine",
+  "version": "1.0.0",
+  "last_run": "2026-04-23T03:11:46.896318",
+  "schedule": "Every Sunday night (weekly)",
+  "models_managed": [
+    "xgboost_risk.pkl",
+    "random_forest_delay.pkl",
+    "gradient_boosting_reroute.pkl"
+  ],
+  "split": "70/15/15 train/val/test",
+  "rolling_window_max_rows": 350000,
+  "drift_threshold_multiplier": 1.25,
+  "promotion_criteria": {
+    "xgboost_risk": "New RMSE must be < 99% of old RMSE (>1% improvement)",
+    "random_forest_delay": "New RMSE must be < 99% of old RMSE",
+    "gradient_boosting_reroute": "New AUC must be > old AUC"
+  },
+  "data_sources_for_new_rows": [
+    "shipments table: completed_at between last_sunday and now",
+    "Fields: all 9 core features + actual_risk + actual_delay + actual_reroute",
+    "In simulation: synthetic weekly outcomes with N(2.5, 6) prediction error"
+  ],
+  "pipeline_steps": [
+    "1. Load existing training_dataset.csv",
+    "2. Simulate/query new completed shipment outcomes",
+    "3. Compute weekly prediction accuracy (drift detection)",
+    "4. Merge new data (rolling window of 350K rows)",
+    "5. 70/15/15 split on combined dataset",
+    "6. Retrain XGBoost + RF + GBM from scratch on combined data",
+    "7. Compare new vs old on test set; promote if better",
+    "8. Append to model_performance_log.json"
+  ],
+  "current_week_summary": {
+    "run_date": "2026-04-23T03:11:46.895697",
+    "new_shipments_this_week": 2000,
+    "total_training_rows": 300780,
+    "drift_detection": {
+      "risk_drift_factor": 2.576,
+      "delay_drift_factor": 0.943,
+      "threshold": 1.25,
+      "triggered": true
+    },
+    "weekly_field_accuracy": {
+      "risk_rmse_on_completions": 6.451,
+      "risk_mae_on_completions": 5.146,
+      "delay_rmse_on_completions": 4.271,
+      "delay_mae_on_completions": 3.424
+    },
+    "model_comparison": {
+      "xgboost_risk": {
+        "old_rmse": 2.5042,
+        "new_rmse": 2.5803,
+        "improved": false,
+        "action": "KEPT_OLD"
+      },
+      "random_forest_delay": {
+        "old_rmse": 4.5282,
+        "new_rmse": 4.5298,
+        "improved": false,
+        "action": "KEPT_OLD"
+      },
+      "gradient_boosting_reroute": {
+        "old_auc": 1.0,
+        "new_auc": 0.9999,
+        "improved": false,
+        "action": "KEPT_OLD"
+      }
+    }
+  }
+}

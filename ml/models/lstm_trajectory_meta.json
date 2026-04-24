@@ -1,0 +1,104 @@
+{
+  "model_type": "LSTM (Long Short-Term Memory) - PyTorch",
+  "task": "risk_trajectory_forecasting",
+  "version": "1.0.0",
+  "framework": "PyTorch",
+  "trained_at": "2026-04-23T02:57:08.320314",
+  "split": "70/15/15 train/val/test",
+  "training_sequences": 56000,
+  "val_sequences": 12000,
+  "test_sequences": 12000,
+  "input_shape": [
+    12,
+    1
+  ],
+  "output_shape": [
+    6
+  ],
+  "input_description": "Last 12 risk scores (360 min = 6h history)",
+  "output_description": "Next 6 risk scores (180 min = 3h ahead)",
+  "normalization": "Divide inputs by 100.0 before passing to model; multiply output by 100.0",
+  "architecture": {
+    "LSTM_1": "64 units, batch_first=True",
+    "Dropout_1": "0.20",
+    "LSTM_2": "32 units, batch_first=True",
+    "Dropout_2": "0.20",
+    "Dense_output": "6 units, linear",
+    "total_trainable_params": 29894
+  },
+  "training": {
+    "optimizer": "Adam(lr=0.001)",
+    "loss": "MSELoss",
+    "epochs_run": 80,
+    "best_epoch": 74,
+    "batch_size": 512,
+    "gradient_clipping": "max_norm=1.0",
+    "early_stopping_patience": 12,
+    "lr_scheduler": "ReduceLROnPlateau(factor=0.5, patience=5, min_lr=1e-5)"
+  },
+  "data_generation": {
+    "method": "Ornstein-Uhlenbeck (OU) synthetic trajectory generation",
+    "total_sequences": 80000,
+    "why_synthetic": "AIS data does not have clean 30-minute temporal sequences per vessel. OU is physically motivated: risk mean-reverts after events -- storms pass, ports clear. This matches real maritime risk dynamics.",
+    "scenarios": {
+      "calm": {
+        "mu": 18,
+        "theta": 0.3,
+        "sigma": 4.0,
+        "weight_pct": 30.0
+      },
+      "moderate": {
+        "mu": 38,
+        "theta": 0.25,
+        "sigma": 7.0,
+        "weight_pct": 25.0
+      },
+      "storm": {
+        "mu": 72,
+        "theta": 0.15,
+        "sigma": 12.0,
+        "weight_pct": 20.0
+      },
+      "port_crisis": {
+        "mu": 65,
+        "theta": 0.2,
+        "sigma": 8.0,
+        "weight_pct": 12.0
+      },
+      "recovery": {
+        "mu": 30,
+        "theta": 0.4,
+        "sigma": 6.0,
+        "weight_pct": 8.0
+      },
+      "worsening": {
+        "mu": 75,
+        "theta": 0.1,
+        "sigma": 10.0,
+        "weight_pct": 5.0
+      }
+    }
+  },
+  "metrics": {
+    "test_rmse_risk_pts": 8.958,
+    "test_mae_risk_pts": 6.5273,
+    "directional_accuracy_pct": 57.14,
+    "rmse_per_step": [
+      5.5718,
+      7.4429,
+      8.688,
+      9.6004,
+      10.2649,
+      11.0459
+    ],
+    "mae_per_step": [
+      4.1613,
+      5.5562,
+      6.4874,
+      7.1806,
+      7.6083,
+      8.1703
+    ]
+  },
+  "inference_note": "1. Load: ckpt=torch.load(MODEL_PATH); model=RiskLSTM(**ckpt['model_config']); model.load_state_dict(ckpt['model_state_dict']); model.eval(). 2. Input: x = torch.tensor(last_12_scores/100, dtype=float32).unsqueeze(0).unsqueeze(-1). 3. Output: model(x)[0].detach().numpy() * 100 gives 6 future risk scores."
+}

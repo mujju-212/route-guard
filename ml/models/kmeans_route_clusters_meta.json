@@ -1,0 +1,147 @@
+{
+  "model_type": "K-Means Clustering (scikit-learn)",
+  "task": "route_pattern_clustering",
+  "version": "1.0.0",
+  "trained_at": "2026-04-23T03:16:46.279872",
+  "split": "70% fit / 15% val / 15% test",
+  "total_routes": 67,
+  "fit_routes": 46,
+  "val_routes": 10,
+  "test_routes": 11,
+  "optimal_k": 4,
+  "k_selection_method": "Highest silhouette score on val set across K=2..8",
+  "features": [
+    "avg_weather_score",
+    "avg_port_score",
+    "avg_traffic_score",
+    "avg_delay_hours",
+    "avg_risk_score",
+    "risk_std_dev"
+  ],
+  "feature_scaling": "StandardScaler (mean=0, std=1) \u2014 required for Euclidean distance",
+  "hyperparameters": {
+    "n_clusters": 4,
+    "n_init": 20,
+    "max_iter": 500,
+    "algorithm": "lloyd",
+    "random_state": 42
+  },
+  "metrics": {
+    "inertia": 121.54,
+    "silhouette_fit": 0.2502,
+    "silhouette_val": 0.2607,
+    "silhouette_test": 0.3325,
+    "davies_bouldin_test": 0.7613
+  },
+  "k_selection_search": [
+    {
+      "k": 2,
+      "inertia": 184.8446245189612,
+      "silhouette_fit": 0.4315538441738778,
+      "silhouette_val": 0.43714347030893874,
+      "davies_bouldin": 0.8023499091836657
+    },
+    {
+      "k": 3,
+      "inertia": 144.56667466159195,
+      "silhouette_fit": 0.2536533816908296,
+      "silhouette_val": 0.2587231150697425,
+      "davies_bouldin": 1.272679684981117
+    },
+    {
+      "k": 4,
+      "inertia": 125.47532885164347,
+      "silhouette_fit": 0.265688360569495,
+      "silhouette_val": 0.47346340924702374,
+      "davies_bouldin": 1.2756309278818785
+    },
+    {
+      "k": 5,
+      "inertia": 109.23694409759405,
+      "silhouette_fit": 0.23161147433319149,
+      "silhouette_val": 0.33636130201953984,
+      "davies_bouldin": 1.2779465186508356
+    },
+    {
+      "k": 6,
+      "inertia": 94.08912404540638,
+      "silhouette_fit": 0.23878803696698545,
+      "silhouette_val": 0.2607049201537591,
+      "davies_bouldin": 1.0803623178357622
+    },
+    {
+      "k": 7,
+      "inertia": 82.8258378884018,
+      "silhouette_fit": 0.24012902636454528,
+      "silhouette_val": 0.15152183571496577,
+      "davies_bouldin": 1.078953738505652
+    },
+    {
+      "k": 8,
+      "inertia": 70.25617759107645,
+      "silhouette_fit": 0.2290991038493687,
+      "silhouette_val": 0.20179818648821457,
+      "davies_bouldin": 0.9238748263732118
+    }
+  ],
+  "cluster_profiles": {
+    "0": {
+      "label": "Port Congestion Prone",
+      "historical_score_adjustment": 10,
+      "avg_weather_score": 26.17,
+      "avg_port_score": 48.89,
+      "avg_traffic_score": 29.98,
+      "avg_delay_hours": 13.9,
+      "avg_risk_score": 40.97,
+      "risk_std_dev": 11.75,
+      "route_count": 6
+    },
+    "1": {
+      "label": "Moderate / Stable",
+      "historical_score_adjustment": 0,
+      "avg_weather_score": 33.88,
+      "avg_port_score": 39.28,
+      "avg_traffic_score": 21.87,
+      "avg_delay_hours": 14.58,
+      "avg_risk_score": 39.16,
+      "risk_std_dev": 10.23,
+      "route_count": 14
+    },
+    "2": {
+      "label": "Moderate / Stable",
+      "historical_score_adjustment": 0,
+      "avg_weather_score": 27.45,
+      "avg_port_score": 36.97,
+      "avg_traffic_score": 21.0,
+      "avg_delay_hours": 13.03,
+      "avg_risk_score": 33.27,
+      "risk_std_dev": 10.97,
+      "route_count": 35
+    },
+    "3": {
+      "label": "Port Congestion Prone",
+      "historical_score_adjustment": 10,
+      "avg_weather_score": 18.31,
+      "avg_port_score": 48.0,
+      "avg_traffic_score": 32.23,
+      "avg_delay_hours": 7.41,
+      "avg_risk_score": 31.05,
+      "risk_std_dev": 13.44,
+      "route_count": 12
+    }
+  },
+  "historical_adjustments": {
+    "Always Reliable": -12,
+    "Weather Sensitive": 8,
+    "Port Congestion Prone": 10,
+    "High Risk / Problematic": 20,
+    "Unpredictable / Mixed": 5,
+    "Moderate / Stable": 0
+  },
+  "inference_note": "1. Load: kmeans=joblib.load('kmeans_route_clusters.pkl'); scaler=joblib.load('kmeans_scaler.pkl'). 2. Build route feature vector [avg_weather, avg_port, avg_traffic, avg_delay, avg_risk, risk_std]. 3. cluster_id = kmeans.predict(scaler.transform([features]))[0]. 4. Lookup adjustment in cluster_profiles[str(cluster_id)]['historical_score_adjustment']. 5. final_historical_score = base_historical_score + adjustment (clipped 0-100).",
+  "how_it_feeds_back": "Each route gets assigned a cluster_id at analysis time. The cluster's historical_score_adjustment (+/- points) is added to the base historical_score before passing to XGBoost Model 1. This makes risk scoring route-aware: a vessel on a proven reliable route gets a lower historical_score than one on a consistently problematic lane.",
+  "data_sources": [
+    "training_dataset.csv aggregated to route level (dest_cluster + season + cargo_band)",
+    "Minimum 5 shipment records per route for reliable aggregation"
+  ]
+}

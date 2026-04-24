@@ -1,0 +1,39 @@
+[
+  {
+    "run_date": "2026-04-23T03:11:46.895697",
+    "new_shipments_this_week": 2000,
+    "total_training_rows": 300780,
+    "drift_detection": {
+      "risk_drift_factor": 2.576,
+      "delay_drift_factor": 0.943,
+      "threshold": 1.25,
+      "triggered": true
+    },
+    "weekly_field_accuracy": {
+      "risk_rmse_on_completions": 6.451,
+      "risk_mae_on_completions": 5.146,
+      "delay_rmse_on_completions": 4.271,
+      "delay_mae_on_completions": 3.424
+    },
+    "model_comparison": {
+      "xgboost_risk": {
+        "old_rmse": 2.5042,
+        "new_rmse": 2.5803,
+        "improved": false,
+        "action": "KEPT_OLD"
+      },
+      "random_forest_delay": {
+        "old_rmse": 4.5282,
+        "new_rmse": 4.5298,
+        "improved": false,
+        "action": "KEPT_OLD"
+      },
+      "gradient_boosting_reroute": {
+        "old_auc": 1.0,
+        "new_auc": 0.9999,
+        "improved": false,
+        "action": "KEPT_OLD"
+      }
+    }
+  }
+]

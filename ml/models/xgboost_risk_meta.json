@@ -1,0 +1,110 @@
+{
+  "model_type": "XGBoostRegressor",
+  "task": "risk_score_prediction",
+  "version": "1.0.0",
+  "trained_at": "2026-04-23T02:24:49.477653",
+  "training_rows": 209146,
+  "val_rows": 44817,
+  "test_rows": 44817,
+  "split": "70/15/15 train/val/test",
+  "core_features": [
+    "weather_score",
+    "traffic_score",
+    "port_score",
+    "historical_score",
+    "cargo_sensitivity",
+    "distance_remaining_km",
+    "time_of_day",
+    "day_of_week",
+    "season"
+  ],
+  "extended_features": [
+    "speed_ratio",
+    "heading_cog_diff",
+    "draft_ratio",
+    "ETA_hours",
+    "SOG_kmh"
+  ],
+  "all_features": [
+    "weather_score",
+    "traffic_score",
+    "port_score",
+    "historical_score",
+    "cargo_sensitivity",
+    "distance_remaining_km",
+    "time_of_day",
+    "day_of_week",
+    "season",
+    "speed_ratio",
+    "heading_cog_diff",
+    "draft_ratio",
+    "ETA_hours",
+    "SOG_kmh"
+  ],
+  "target": "risk_score",
+  "output_range": [
+    0,
+    100
+  ],
+  "risk_thresholds": {
+    "low": [
+      0,
+      30
+    ],
+    "medium": [
+      30,
+      55
+    ],
+    "high": [
+      55,
+      75
+    ],
+    "critical": [
+      75,
+      100
+    ]
+  },
+  "metrics": {
+    "rmse": 2.5042,
+    "mae": 1.9965,
+    "r2": 0.9648,
+    "risk_level_accuracy_pct": 94.04
+  },
+  "hyperparameters": {
+    "n_estimators": 500,
+    "learning_rate": 0.05,
+    "max_depth": 6,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "min_child_weight": 5,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "objective": "reg:squarederror",
+    "eval_metric": "rmse",
+    "random_state": 42,
+    "n_jobs": -1,
+    "tree_method": "hist"
+  },
+  "feature_importances": {
+    "weather_score": 0.5123,
+    "port_score": 0.21,
+    "traffic_score": 0.1447,
+    "historical_score": 0.0891,
+    "cargo_sensitivity": 0.0384,
+    "draft_ratio": 0.0036,
+    "SOG_kmh": 0.0004,
+    "distance_remaining_km": 0.0004,
+    "ETA_hours": 0.0004,
+    "heading_cog_diff": 0.0004,
+    "time_of_day": 0.0004,
+    "speed_ratio": 0.0,
+    "day_of_week": 0.0,
+    "season": 0.0
+  },
+  "data_sources": [
+    "satyamrajput7913/processed_AIS_dataset.csv (1.1M AIS records)",
+    "saurabhshahane/hour_forecast.csv (sea weather distribution)",
+    "Synthetic port congestion simulation (cluster-based)",
+    "Rule-engineered risk labels (weighted feature combination)"
+  ]
+}

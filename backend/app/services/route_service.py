@@ -1,4 +1,4 @@
-﻿from decimal import Decimal
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -41,15 +41,39 @@ async def create_initial_route(db: Session, shipment_id: str, origin_port_id: st
 	)
 
 
-def generate_route_waypoints(origin: tuple[float, float], destination: tuple[float, float], steps: int = 10) -> list[dict[str, float]]:
-	lat1, lng1 = origin
-	lat2, lng2 = destination
+def generate_route_waypoints(origin: tuple[float, float], destination: tuple[float, float], steps: int = 20) -> list[dict[str, float]]:
+	"""Generate waypoints along a great-circle (geodesic) path between two points.
+	This creates curved routes that follow the Earth's curvature, similar to
+	how shipping routes appear on Google Maps."""
+	import math
+	lat1, lng1 = math.radians(origin[0]), math.radians(origin[1])
+	lat2, lng2 = math.radians(destination[0]), math.radians(destination[1])
+
+	# Central angle between the two points
+	d = math.acos(
+		min(1.0, max(-1.0,
+			math.sin(lat1) * math.sin(lat2) +
+			math.cos(lat1) * math.cos(lat2) * math.cos(lng2 - lng1)
+		))
+	)
+
 	points: list[dict[str, float]] = []
 	for index in range(steps + 1):
 		t = index / steps
-		lat = lat1 + (lat2 - lat1) * t
-		lng = lng1 + (lng2 - lng1) * t
-		points.append({'lat': lat, 'lng': lng})
+		if d < 1e-6:
+			# Points are too close — just interpolate linearly
+			lat = origin[0] + (destination[0] - origin[0]) * t
+			lng = origin[1] + (destination[1] - origin[1]) * t
+		else:
+			# Spherical linear interpolation (slerp)
+			a = math.sin((1 - t) * d) / math.sin(d)
+			b = math.sin(t * d) / math.sin(d)
+			x = a * math.cos(lat1) * math.cos(lng1) + b * math.cos(lat2) * math.cos(lng2)
+			y = a * math.cos(lat1) * math.sin(lng1) + b * math.cos(lat2) * math.sin(lng2)
+			z = a * math.sin(lat1) + b * math.sin(lat2)
+			lat = math.degrees(math.atan2(z, math.sqrt(x * x + y * y)))
+			lng = math.degrees(math.atan2(y, x))
+		points.append({'lat': round(lat, 6), 'lng': round(lng, 6)})
 	return points
 
 
@@ -59,19 +83,17 @@ def _generate_route_waypoints_with_deviation(
 	deviation_lat: float,
 	deviation_lng: float,
 ) -> list[dict[str, float]]:
-	lat1, lng1 = origin
-	lat2, lng2 = destination
-	mid_lat = (lat1 + lat2) / 2 + deviation_lat
-	mid_lng = (lng1 + lng2) / 2 + deviation_lng
+	"""Generate a curved route that passes through a deviated midpoint.
+	Creates two great-circle arcs: origin→midpoint and midpoint→destination."""
+	mid_lat = (origin[0] + destination[0]) / 2 + deviation_lat
+	mid_lng = (origin[1] + destination[1]) / 2 + deviation_lng
+	midpoint = (mid_lat, mid_lng)
 
-	waypoints: list[dict[str, float]] = []
-	for index in range(6):
-		t = index / 5
-		waypoints.append({'lat': lat1 + (mid_lat - lat1) * t, 'lng': lng1 + (mid_lng - lng1) * t})
-	for index in range(1, 6):
-		t = index / 5
-		waypoints.append({'lat': mid_lat + (lat2 - mid_lat) * t, 'lng': mid_lng + (lng2 - mid_lng) * t})
-	return waypoints
+	# First half: origin → midpoint (10 steps)
+	first_half = generate_route_waypoints(origin, midpoint, steps=10)
+	# Second half: midpoint → destination (10 steps, skip first to avoid duplicate)
+	second_half = generate_route_waypoints(midpoint, destination, steps=10)
+	return first_half + second_half[1:]
 
 
 async def generate_alternate_routes(
@@ -128,8 +150,38 @@ async def score_alternate_route(shipment_id: str, route_waypoints: list[dict[str
 	extra_cost = extra_distance * 2.2
 	optimization_score = (risk_result['risk_score'] * 0.45) + (delay_hours * 0.35) + (extra_distance / 40 * 0.2)
 
+	# Count existing alternate routes for this shipment to pick the right type
+	existing_alts = db.query(Route).filter(
+		Route.shipment_id == UUID(shipment_id),
+		Route.route_type != RouteType.ORIGINAL,
+	).count()
+	alt_types = [RouteType.ALTERNATE_1, RouteType.ALTERNATE_2, RouteType.ALTERNATE_3]
+	route_type = alt_types[min(existing_alts, len(alt_types) - 1)]
+
+	# Calculate total distance for this route
+	total_dist = haversine_distance(
+		route_waypoints[0]['lat'], route_waypoints[0]['lng'],
+		route_waypoints[-1]['lat'], route_waypoints[-1]['lng'],
+	) + extra_distance
+
+	# Save the route to DB so approve_reroute can find it
+	new_route = Route(
+		shipment_id=UUID(shipment_id),
+		route_type=route_type,
+		is_active=False,
+		origin_port_id=shipment.origin_port_id,
+		destination_port_id=shipment.destination_port_id,
+		total_distance_km=round(total_dist, 2),
+		estimated_duration_hr=round(total_dist / 28.0, 2),
+		estimated_fuel_cost=round(extra_cost, 2),
+		waypoints=route_waypoints,
+		risk_score_at_creation=Decimal(str(round(risk_result['risk_score'], 2))),
+	)
+	db.add(new_route)
+	db.flush()  # Get the generated route_id
+
 	return {
-		'route_id': str(UUID(int=abs(hash(str(route_waypoints))) % (1 << 128))),
+		'route_id': str(new_route.route_id),
 		'name': 'Alternate Route',
 		'description': 'ML-scored route option',
 		'risk_score': Decimal(str(round(risk_result['risk_score'], 2))),
@@ -140,4 +192,5 @@ async def score_alternate_route(shipment_id: str, route_waypoints: list[dict[str
 		'extra_cost_usd': Decimal(str(round(extra_cost, 2))),
 		'optimization_score': Decimal(str(round(optimization_score, 2))),
 		'recommended': risk_result['risk_score'] < 55,
+		'waypoints': route_waypoints,
 	}

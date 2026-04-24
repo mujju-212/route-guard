@@ -1,4 +1,4 @@
-﻿from uuid import UUID
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -18,6 +18,22 @@ router = APIRouter()
 
 def _role_value(user: User) -> str:
 	return user.role.value if hasattr(user.role, 'value') else str(user.role)
+
+
+def _route_waypoints_for(shipment: Shipment) -> list[dict[str, float]]:
+	active_route = next((route for route in shipment.routes if route.is_active and route.waypoints), None)
+	if active_route is None and shipment.routes:
+		active_route = shipment.routes[0]
+
+	waypoints = getattr(active_route, 'waypoints', None)
+	if not waypoints:
+		return []
+
+	return [
+		{'lat': float(point['lat']), 'lng': float(point['lng'])}
+		for point in waypoints
+		if isinstance(point, dict) and 'lat' in point and 'lng' in point
+	]
 
 
 @router.post('/create', response_model=ShipmentResponse, status_code=status.HTTP_201_CREATED)
@@ -40,6 +56,7 @@ async def create_shipment(
 		tracking_number=tracking_number,
 		shipper_id=current_user.user_id,
 		receiver_id=UUID(shipment_data.receiver_id),
+		assigned_manager_id=UUID(shipment_data.assigned_manager_id) if shipment_data.assigned_manager_id else None,
 		origin_port_id=UUID(shipment_data.origin_port_id),
 		destination_port_id=UUID(shipment_data.destination_port_id),
 		departure_time=shipment_data.departure_time,
@@ -120,6 +137,41 @@ async def get_shipment(shipment_id: str, current_user: User = Depends(get_curren
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Shipment cargo data missing')
 
 	response_data = ShipmentResponse.model_validate(shipment).model_dump()
+
+	# Build status history timeline
+	status_history = []
+	# Always start with a "created" event from the shipment creation timestamp
+	status_history.append({
+		'status': 'created',
+		'timestamp': shipment.created_at.isoformat() if shipment.created_at else None,
+		'notes': 'Order created',
+		'updated_by': shipment.shipper.full_name if shipment.shipper else None,
+		'latitude': None,
+		'longitude': None,
+	})
+	# Add all status updates from the status_updates table
+	for update in (shipment.status_updates or []):
+		status_history.append({
+			'status': update.new_status,
+			'timestamp': update.created_at.isoformat() if update.created_at else None,
+			'notes': update.notes,
+			'updated_by': update.user.full_name if update.user else None,
+			'latitude': float(update.latitude) if update.latitude is not None else None,
+			'longitude': float(update.longitude) if update.longitude is not None else None,
+			'incident_type': update.incident_type,
+		})
+
+	# Original route waypoints (for showing old route when rerouted)
+	from app.models.route import RouteType
+	original_route = next((r for r in shipment.routes if r.route_type == RouteType.ORIGINAL and r.waypoints), None)
+	original_waypoints = []
+	if original_route and original_route.waypoints and shipment.is_rerouted:
+		original_waypoints = [
+			{'lat': float(p['lat']), 'lng': float(p['lng'])}
+			for p in original_route.waypoints
+			if isinstance(p, dict) and 'lat' in p and 'lng' in p
+		]
+
 	response_data.update(
 		{
 			'shipper_name': shipment.shipper.full_name,
@@ -133,6 +185,9 @@ async def get_shipment(shipment_id: str, current_user: User = Depends(get_curren
 			'cargo_description': shipment.cargo.description,
 			'declared_value': shipment.cargo.declared_value,
 			'cargo_sensitivity_score': shipment.cargo.cargo_sensitivity_score,
+			'route_waypoints': _route_waypoints_for(shipment),
+			'original_route_waypoints': original_waypoints,
+			'status_history': status_history,
 		}
 	)
 	return ShipmentDetailResponse(**response_data)

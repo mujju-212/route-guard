@@ -14,6 +14,22 @@ from app.services.alert_service import create_alert
 router = APIRouter()
 
 
+def _route_waypoints_for(shipment: Shipment) -> list[dict[str, float]]:
+	active_route = next((route for route in shipment.routes if route.is_active and route.waypoints), None)
+	if active_route is None and shipment.routes:
+		active_route = shipment.routes[0]
+
+	waypoints = getattr(active_route, 'waypoints', None)
+	if not waypoints:
+		return []
+
+	return [
+		{'lat': float(point['lat']), 'lng': float(point['lng'])}
+		for point in waypoints
+		if isinstance(point, dict) and 'lat' in point and 'lng' in point
+	]
+
+
 @router.get('/assignment', response_model=ShipmentDetailResponse)
 async def get_assignment(current_user: User = Depends(require_role(['driver'])), db: Session = Depends(get_db)):
 	shipment = (
@@ -42,6 +58,7 @@ async def get_assignment(current_user: User = Depends(require_role(['driver'])),
 		'cargo_description': shipment.cargo.description,
 		'declared_value': shipment.cargo.declared_value,
 		'cargo_sensitivity_score': shipment.cargo.cargo_sensitivity_score,
+		'route_waypoints': _route_waypoints_for(shipment),
 	}
 
 	return ShipmentDetailResponse.model_validate(payload)

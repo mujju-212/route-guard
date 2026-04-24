@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -97,6 +97,7 @@ async def get_prediction(shipment_id: str, current_user: User = Depends(get_curr
 				extra_cost_usd=Decimal(str(route.get('extra_cost_usd', 0))),
 				optimization_score=Decimal(str(route.get('optimization_score', 0))),
 				recommended=bool(route.get('recommended', False)),
+				waypoints=route.get('waypoints', []),
 			)
 			for route in alternates
 		],
@@ -118,6 +119,15 @@ async def get_routes(shipment_id: str, current_user: User = Depends(get_current_
 	shipment = db.query(Shipment).filter(Shipment.shipment_id == UUID(shipment_id)).first()
 	if not shipment:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Shipment not found')
+
+	# Clean up old non-active alternate routes before generating new ones
+	from app.models.route import Route as RouteModel, RouteType
+	db.query(RouteModel).filter(
+		RouteModel.shipment_id == shipment.shipment_id,
+		RouteModel.route_type != RouteType.ORIGINAL,
+		RouteModel.is_active.is_(False),
+	).delete(synchronize_session='fetch')
+	db.flush()
 
 	alternates = await generate_alternate_routes(
 		origin_coords=(float(shipment.origin_port.latitude), float(shipment.origin_port.longitude)),
@@ -147,9 +157,11 @@ async def get_routes(shipment_id: str, current_user: User = Depends(get_current_
 				extra_cost_usd=Decimal(str(scored['extra_cost_usd'])),
 				optimization_score=Decimal(str(scored['optimization_score'])),
 				recommended=bool(scored['recommended']),
+				waypoints=scored.get('waypoints', []),
 			)
 		)
 
+	db.commit()  # Persist the saved alternate routes
 	return results
 
 

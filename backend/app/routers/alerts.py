@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -68,7 +68,7 @@ async def get_active_alerts(current_user: User = Depends(get_current_user), db: 
 @router.put('/{alert_id}/resolve')
 async def resolve_alert(
 	alert_id: str,
-	resolve_data: AlertResolveRequest,
+	resolve_data: AlertResolveRequest = AlertResolveRequest(),
 	current_user: User = Depends(get_current_user),
 	db: Session = Depends(get_db),
 ):
@@ -76,7 +76,10 @@ async def resolve_alert(
 	if _role_value(current_user) != 'manager':
 		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Only managers can resolve alerts')
 
-	alert = db.query(Alert).filter(Alert.alert_id == UUID(alert_id)).first()
+	try:
+		alert = db.query(Alert).filter(Alert.alert_id == UUID(alert_id)).first()
+	except (ValueError, AttributeError):
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid alert ID format')
 	if not alert:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Alert not found')
 
@@ -91,7 +94,10 @@ async def resolve_alert(
 
 @router.put('/{alert_id}/read')
 async def mark_alert_read(alert_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-	alert = db.query(Alert).filter(Alert.alert_id == UUID(alert_id)).first()
+	try:
+		alert = db.query(Alert).filter(Alert.alert_id == UUID(alert_id)).first()
+	except (ValueError, AttributeError):
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid alert ID format')
 	if not alert:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Alert not found')
 

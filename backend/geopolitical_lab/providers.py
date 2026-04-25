@@ -9,9 +9,18 @@ from .schemas import EventSource, RawEvent
 from .settings import LabSettings
 
 
+def _http_timeout(settings: LabSettings) -> httpx.Timeout:
+    # Explicit phase timeouts reduce the chance of hanging provider calls.
+    total = float(settings.REQUEST_TIMEOUT_SECONDS)
+    connect = min(8.0, total)
+    read = max(5.0, total - 3.0)
+    return httpx.Timeout(total, connect=connect, read=read, write=10.0, pool=10.0)
+
+
 def _parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
+
     text = value.replace("Z", "+00:00")
     try:
         return datetime.fromisoformat(text)
@@ -60,48 +69,6 @@ def _geometry_to_center_radius(geometry: dict | None) -> tuple[float, float, flo
     return center_lat, center_lng, radius_km
 
 
-async def fetch_newsapi_events(settings: LabSettings) -> list[RawEvent]:
-    if not settings.NEWSAPI_KEY:
-        return []
-
-    query = (
-        "(maritime OR shipping OR vessel OR tanker OR cargo) "
-        "AND (piracy OR attack OR war OR sanctions OR storm OR strait OR port)"
-    )
-
-    url = "https://newsapi.org/v2/everything"
-    params = {
-        "q": query,
-        "language": "en",
-        "sortBy": "publishedAt",
-        "pageSize": settings.INGEST_LIMIT_PER_PROVIDER,
-        "apiKey": settings.NEWSAPI_KEY,
-    }
-
-    async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT_SECONDS) as client:
-        response = await client.get(url, params=params)
-        response.raise_for_status()
-        payload = response.json()
-
-    events: list[RawEvent] = []
-    for idx, item in enumerate(payload.get("articles", [])):
-        title = item.get("title") or "Untitled maritime event"
-        desc = item.get("description") or ""
-        events.append(
-            RawEvent(
-                event_id=f"newsapi-{idx}-{abs(hash(title)) % 100000}",
-                source=EventSource.NEWSAPI,
-                title=title,
-                description=desc,
-                url=item.get("url"),
-                published_at=_parse_dt(item.get("publishedAt")),
-                metadata={"provider": "newsapi"},
-            )
-        )
-
-    return events
-
-
 async def fetch_gdelt_events(settings: LabSettings) -> list[RawEvent]:
     query = (
         "(maritime OR shipping OR tanker OR cargo OR vessel) "
@@ -117,7 +84,7 @@ async def fetch_gdelt_events(settings: LabSettings) -> list[RawEvent]:
         "sort": "DateDesc",
     }
 
-    async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT_SECONDS) as client:
+    async with httpx.AsyncClient(timeout=_http_timeout(settings), follow_redirects=True) as client:
         response = await client.get(url, params=params)
         response.raise_for_status()
         payload = response.json()
@@ -145,7 +112,7 @@ async def fetch_noaa_events(settings: LabSettings) -> list[RawEvent]:
     url = "https://api.weather.gov/alerts/active"
     params = {"status": "actual", "message_type": "alert"}
 
-    async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT_SECONDS) as client:
+    async with httpx.AsyncClient(timeout=_http_timeout(settings), follow_redirects=True) as client:
         response = await client.get(url, params=params)
         response.raise_for_status()
         payload = response.json()
@@ -190,13 +157,13 @@ async def fetch_noaa_events(settings: LabSettings) -> list[RawEvent]:
 async def collect_live_events(settings: LabSettings) -> tuple[list[RawEvent], dict[str, int]]:
     async def _safe_collect(name: str, fn):
         try:
-            result = await fn(settings)
+            # Hard upper bound per source so one endpoint cannot block full refresh.
+            result = await asyncio.wait_for(fn(settings), timeout=settings.REQUEST_TIMEOUT_SECONDS + 5)
             return name, result
         except Exception:
             return name, []
 
     tasks = [
-        _safe_collect("newsapi", fetch_newsapi_events),
         _safe_collect("gdelt", fetch_gdelt_events),
         _safe_collect("noaa", fetch_noaa_events),
     ]

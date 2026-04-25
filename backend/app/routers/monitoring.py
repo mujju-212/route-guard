@@ -71,6 +71,9 @@ async def get_prediction(shipment_id: str, current_user: User = Depends(get_curr
 	feature_importance = prediction.get('feature_importance', {})
 	financial_impact = prediction.get('financial_impact', {})
 	alternates = prediction.get('alternate_routes', [])
+	# LSTM 6-hour trajectory — list of floats
+	risk_trajectory_raw = prediction.get('risk_trajectory', [])
+	risk_trajectory = [float(v) for v in risk_trajectory_raw if v is not None]
 
 	return MLPredictionResponse(
 		shipment_id=shipment_id,
@@ -98,6 +101,11 @@ async def get_prediction(shipment_id: str, current_user: User = Depends(get_curr
 				optimization_score=Decimal(str(route.get('optimization_score', 0))),
 				recommended=bool(route.get('recommended', False)),
 				waypoints=route.get('waypoints', []),
+				profit_saving_usd=float(route.get('profit_saving_usd', 0)),
+				time_saving_hr=float(route.get('time_saving_hr', 0)),
+				delivery_speed_gain_pct=float(route.get('delivery_speed_gain_pct', 0)),
+				alt_duration_hr=float(route.get('alt_duration_hr', 0)),
+				alt_loss_usd=float(route.get('alt_loss_usd', 0)),
 			)
 			for route in alternates
 		],
@@ -108,6 +116,7 @@ async def get_prediction(shipment_id: str, current_user: User = Depends(get_curr
 			recommended_route_expected_loss_usd=Decimal(str(financial_impact.get('recommended_route_expected_loss_usd', 0))),
 			net_saving_usd=Decimal(str(financial_impact.get('net_saving_usd', 0))),
 		),
+		risk_trajectory=risk_trajectory,
 	)
 
 

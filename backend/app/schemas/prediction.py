@@ -25,10 +25,16 @@ class AlternateRoute(BaseModel):
 	optimization_score: Decimal
 	recommended: bool
 	waypoints: list[dict] = []
-	# Rerouting context — routes start from current vessel position
+	# Rerouting context
 	from_current: bool = False
 	start_lat: float | None = None
 	start_lon: float | None = None
+	# Financial analytics
+	profit_saving_usd: float = 0.0
+	time_saving_hr: float = 0.0
+	delivery_speed_gain_pct: float = 0.0
+	alt_duration_hr: float = 0.0
+	alt_loss_usd: float = 0.0
 
 
 class FinancialImpact(BaseModel):

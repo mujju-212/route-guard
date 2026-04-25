@@ -274,10 +274,20 @@ async def run_complete_ml_pipeline(shipment_id: str, db, current_coords: tuple[f
 		current_coords=coords,
 	)
 
-	# Compute base route distance once so all alternates compare against the same baseline
-	base_dist_km: float | None = None
-	if active_route and active_route.total_distance_km:
-		base_dist_km = float(active_route.total_distance_km)
+	# ── Base distance = REMAINING distance from current position to destination ──
+	# NOT the full original route distance. Alt routes start from current_coords,
+	# so comparing against total_distance_km would give nonsensical time savings.
+	import math
+	def _hav(a, b):
+		R = 6371.0
+		dLat = math.radians(b[0]-a[0]); dLng = math.radians(b[1]-a[1])
+		x = math.sin(dLat/2)**2 + math.cos(math.radians(a[0]))*math.cos(math.radians(b[0]))*math.sin(dLng/2)**2
+		return 2*R*math.atan2(math.sqrt(x), math.sqrt(1-x))
+
+	dest_coords = (float(shipment.destination_port.latitude), float(shipment.destination_port.longitude))
+	remaining_dist_km = _hav(coords, dest_coords)  # straight-line remaining distance
+	# Use the shortest alt route distance as a more realistic remaining baseline if available
+	base_dist_km: float = remaining_dist_km
 
 	scored_routes: list[dict[str, Any]] = []
 	for idx, route in enumerate(alternate_candidates):
@@ -286,11 +296,17 @@ async def run_complete_ml_pipeline(shipment_id: str, db, current_coords: tuple[f
 			route['waypoints'],
 			db,
 			base_distance_km=base_dist_km,
+			from_current=route.get('from_current', True),
+			start_lat=route.get('start_lat'),
+			start_lon=route.get('start_lon'),
 		)
 		if not scored:
 			continue
 		scored['name'] = route.get('name', scored['name'])
 		scored['description'] = route.get('description', scored['description'])
+		# After first route scored, use its actual distance as base for subsequent comparisons
+		if idx == 0 and scored.get('dist_km', 0) > 0:
+			base_dist_km = float(scored['dist_km'])
 		# score_alternate_route already persisted the Route; just capture it
 		scored_routes.append(scored)
 

@@ -680,10 +680,10 @@ export default function LoginPage() {
 											<button
 												type="button"
 												className="rg-login__demo-btn"
-												key={account.role}
+												key={account.email}
 												onClick={() => fillDemo(account)}
 											>
-												Use {AUTH_ROLES[account.role].label} Demo
+												Use {account.quickLabel || AUTH_ROLES[account.role].label} Demo
 											</button>
 										))}
 									</div>

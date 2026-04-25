@@ -1,4 +1,4 @@
-﻿import { createContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useEffect, useMemo, useState } from 'react';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 
@@ -133,6 +133,18 @@ export function AuthProvider({ children }) {
 		}
 	};
 
+	const updateProfile = async (payload) => {
+		try {
+			const response = await api.put(ENDPOINTS.ME, payload);
+			const safeUser = normalizeUser(response.data);
+			setUser(safeUser);
+			localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(safeUser));
+			return { success: true, user: safeUser };
+		} catch (error) {
+			return { success: false, error: resolveAuthError(error, 'Failed to update profile.') };
+		}
+	};
+
 	const logout = () => {
 		clearStoredSession();
 		setToken(null);
@@ -146,9 +158,10 @@ export function AuthProvider({ children }) {
 			loading,
 			login,
 			register,
+			updateProfile,
 			logout,
 		}),
-		[user, token, loading, login, register, logout]
+		[user, token, loading, login, register, updateProfile, logout]
 	);
 
 	return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;

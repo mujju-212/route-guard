@@ -3,8 +3,6 @@ import AppShell from './components/layout/AppShell';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './pages/auth/LoginPage';
 import DriverDashboard from './pages/driver/DriverDashboard';
-import RouteChangeAlert from './pages/driver/RouteChangeAlert';
-import StatusUpdate from './pages/driver/StatusUpdate';
 import AnalyticsPage from './pages/manager/AnalyticsPage';
 import ManagerDashboard from './pages/manager/ManagerDashboard';
 import ManagerOfferConsole from './pages/manager/ManagerOfferConsole';
@@ -219,50 +217,34 @@ export default function App() {
 					}
 				/>
 				<Route
-					path="driver/status"
+					path="driver/assignment"
 					element={
 						<RoleGuard allowedRoles={['driver']}>
-							<StatusUpdate />
+							<DriverDashboard initialTab="assignment" />
 						</RoleGuard>
 					}
 				/>
 				<Route
-					path="driver/route-change"
+					path="driver/details"
 					element={
 						<RoleGuard allowedRoles={['driver']}>
-							<RouteChangeAlert />
+							<DriverDashboard initialTab="details" />
 						</RoleGuard>
 					}
 				/>
 				<Route
-					path="driver/route-change/:id"
+					path="driver/navigation"
 					element={
 						<RoleGuard allowedRoles={['driver']}>
-							<RouteChangeAlert />
+							<DriverDashboard initialTab="navigation" />
 						</RoleGuard>
 					}
 				/>
 				<Route
-					path="driver/my-tasks"
+					path="driver/status-update"
 					element={
 						<RoleGuard allowedRoles={['driver']}>
-							<DriverDashboard initialTab="dashboard" />
-						</RoleGuard>
-					}
-				/>
-				<Route
-					path="driver/pickup"
-					element={
-						<RoleGuard allowedRoles={['driver']}>
-							<DriverDashboard initialTab="pickup" />
-						</RoleGuard>
-					}
-				/>
-				<Route
-					path="driver/navigate"
-					element={
-						<RoleGuard allowedRoles={['driver']}>
-							<DriverDashboard initialTab="navigate" />
+							<DriverDashboard initialTab="status-update" />
 						</RoleGuard>
 					}
 				/>
@@ -274,6 +256,36 @@ export default function App() {
 						</RoleGuard>
 					}
 				/>
+				<Route
+					path="driver/chat"
+					element={
+						<RoleGuard allowedRoles={['driver']}>
+							<DriverDashboard initialTab="chat" />
+						</RoleGuard>
+					}
+				/>
+				<Route
+					path="driver/emergency"
+					element={
+						<RoleGuard allowedRoles={['driver']}>
+							<DriverDashboard initialTab="emergency" />
+						</RoleGuard>
+					}
+				/>
+				<Route
+					path="driver/profile"
+					element={
+						<RoleGuard allowedRoles={['driver']}>
+							<DriverDashboard initialTab="profile" />
+						</RoleGuard>
+					}
+				/>
+				<Route path="driver/status" element={<Navigate to="/driver/status-update" replace />} />
+				<Route path="driver/my-tasks" element={<Navigate to="/driver" replace />} />
+				<Route path="driver/pickup" element={<Navigate to="/driver/details" replace />} />
+				<Route path="driver/navigate" element={<Navigate to="/driver/navigation" replace />} />
+				<Route path="driver/route-change" element={<Navigate to="/driver/navigation" replace />} />
+				<Route path="driver/route-change/:id" element={<Navigate to="/driver/navigation" replace />} />
 
 				<Route
 					path="receiver"
@@ -284,14 +296,6 @@ export default function App() {
 					}
 				/>
 			<Route
-				path="receiver/create-order"
-				element={
-					<RoleGuard allowedRoles={['receiver']}>
-						<ReceiverDashboard initialTab="create-order" />
-					</RoleGuard>
-				}
-			/>
-			<Route
 				path="receiver/track"
 				element={
 					<RoleGuard allowedRoles={['receiver']}>
@@ -299,6 +303,8 @@ export default function App() {
 					</RoleGuard>
 				}
 			/>
+			<Route path="receiver/create-order" element={<Navigate to="/receiver/track" replace />} />
+			<Route path="receiver/search-monitor" element={<Navigate to="/receiver/track" replace />} />
 			<Route
 				path="receiver/alerts"
 				element={

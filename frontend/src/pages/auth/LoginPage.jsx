@@ -3,6 +3,8 @@ import { ArrowLeft, Eye, EyeOff, Lock, Mail, Moon, Sun } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { api } from '../../config/api';
+import { ENDPOINTS } from '../../config/endpoints';
 import RoleSelection from '../../components/auth/RoleSelection';
 import RoleSpecificFields from '../../components/auth/RoleSpecificFields';
 import {
@@ -34,6 +36,8 @@ export default function LoginPage() {
 	const [fullName, setFullName] = useState('');
 	const [phoneNumber, setPhoneNumber] = useState('');
 	const [companyName, setCompanyName] = useState('');
+	const [accountType, setAccountType] = useState('company');
+	const [country, setCountry] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
 	const [confirmPassword, setConfirmPassword] = useState('');
@@ -127,8 +131,28 @@ export default function LoginPage() {
 					setError('Full name is required.');
 					return;
 				}
+				if (!String(email || '').trim()) {
+					setError('Email is required.');
+					return;
+				}
+				if (!phoneNumber.trim()) {
+					setError('Phone number is required.');
+					return;
+				}
+				if (!country.trim()) {
+					setError('Country is required.');
+					return;
+				}
+				if (['receiver', 'shipper', 'manager'].includes(selectedRole) && !companyName.trim()) {
+					setError('Company / organization name is required for this role.');
+					return;
+				}
 				if (password !== confirmPassword) {
 					setError('Passwords do not match.');
+					return;
+				}
+				if (password.length < 8) {
+					setError('Password must be at least 8 characters.');
 					return;
 				}
 				if (!acceptTerms) {
@@ -148,8 +172,13 @@ export default function LoginPage() {
 					email: String(email || '').trim(),
 					password,
 					role: selectedRole,
+					account_type: accountType,
 					company_name: companyName.trim() || null,
-					phone_number: phoneNumber.trim() || null,
+					phone_number: phoneNumber.trim(),
+					country: country.trim(),
+					tos_accepted: true,
+					privacy_accepted: true,
+					shipping_terms_accepted: true,
 				};
 				if (selectedRole === 'manager') {
 					registerPayload.company_profile = {
@@ -324,6 +353,23 @@ export default function LoginPage() {
 											required
 										/>
 									</div>
+									<div className="portal-auth__form-group">
+										<label>Account Type *</label>
+										<select value={accountType} onChange={(event) => setAccountType(event.target.value)}>
+											<option value="company">Company</option>
+											<option value="individual">Individual</option>
+										</select>
+									</div>
+									<div className="portal-auth__form-group">
+										<label>Country *</label>
+										<input
+											type="text"
+											placeholder="e.g., Germany"
+											value={country}
+											onChange={(event) => setCountry(event.target.value)}
+											required
+										/>
+									</div>
 									<div className="portal-auth__form-group portal-auth__full-width">
 										<label>Account Role *</label>
 										<select value={selectedRole} onChange={(event) => onRoleChange(event.target.value)}>
@@ -336,10 +382,10 @@ export default function LoginPage() {
 									</div>
 
 									<div className="portal-auth__form-group portal-auth__full-width">
-										<label>Email Address or Phone Number *</label>
+										<label>Email Address *</label>
 										<input
-											type="text"
-											placeholder="name@domain.com or +1 234..."
+											type="email"
+											placeholder="name@domain.com"
 											value={email}
 											onChange={(event) => setEmail(event.target.value)}
 											required

@@ -1,206 +1,435 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-	Bar, BarChart, CartesianGrid, Cell, Line, LineChart,
-	Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend, Area, AreaChart,
+	Area,
+	AreaChart,
+	Bar,
+	BarChart,
+	CartesianGrid,
+	Cell,
+	Legend,
+	Pie,
+	PieChart,
+	ResponsiveContainer,
+	Tooltip,
+	XAxis,
+	YAxis,
 } from 'recharts';
+import Spinner from '../../components/ui/Spinner';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
-import Spinner from '../../components/ui/Spinner';
+import './analytics.css';
 
-const T = {
-	navy: '#080E1A', card: '#0D1526', border: '#1A2A45',
-	teal: '#00D4B4', amber: '#F59E0B', red: '#EF4444',
-	green: '#10B981', white: '#F0F4FF', gray: '#8A9BB5', grayDim: '#4A5F7A',
+const RISK_COLORS = {
+	critical: '#ef4444',
+	high: '#f97316',
+	medium: '#eab308',
+	low: '#22c55e',
 };
 
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-  .an-card{background:${T.card};border:1px solid ${T.border};border-radius:12px;padding:20px;margin-bottom:14px;}
-  .an-metric{text-align:center;padding:16px 10px;}
-  .an-metric .val{font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;}
-  .an-metric .lbl{font-size:11px;color:${T.gray};margin-top:4px;}
-  .an-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid ${T.border};font-size:13px;}
-  .an-row:last-child{border-bottom:none;}
-  .an-row .k{color:${T.gray};} .an-row .v{font-weight:600;color:${T.white};font-family:'JetBrains Mono',monospace;}
-  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
-  .section-hdr{font-size:13px;font-weight:700;color:${T.white};margin-bottom:14px;}
-  @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
-  .fade{animation:fadeUp .4s ease both;}
-  .recharts-text{fill:${T.gray}!important;font-size:11px!important;}
-  .recharts-cartesian-grid-horizontal line,.recharts-cartesian-grid-vertical line{stroke:${T.border}!important;}
-  .custom-tooltip{background:${T.navy};border:1px solid ${T.border};border-radius:8px;padding:10px 14px;font-size:12px;color:${T.white};}
-`;
-
-function StatCard({ label, value, color, sub }) {
-	return (
-		<div className="an-card an-metric fade">
-			<div className="val" style={{ color: color || T.teal }}>{value}</div>
-			<div className="lbl">{label}</div>
-			{sub && <div style={{ fontSize: 10, color: T.grayDim, marginTop: 2 }}>{sub}</div>}
-		</div>
-	);
+function toNumber(value) {
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function CustomTooltip({ active, payload, label }) {
+function toPercent(value) {
+	const parsed = toNumber(value);
+	return parsed <= 1 ? parsed * 100 : parsed;
+}
+
+function currency(value) {
+	return `$${toNumber(value).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+}
+
+function compactCurrency(value) {
+	return new Intl.NumberFormat('en-US', {
+		style: 'currency',
+		currency: 'USD',
+		notation: 'compact',
+		maximumFractionDigits: 1,
+	}).format(toNumber(value));
+}
+
+function timeLabel(value) {
+	if (!value) return 'No refresh yet';
+	return value.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+function dayLabel(value, index) {
+	if (!value) return `Day ${index + 1}`;
+	const parsed = new Date(value);
+	if (Number.isNaN(parsed.getTime())) return String(value);
+	return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function useThemeMode() {
+	const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || 'dark');
+
+	useEffect(() => {
+		const observer = new MutationObserver(() => {
+			setTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+		});
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+		return () => observer.disconnect();
+	}, []);
+
+	return theme;
+}
+
+function AnalyticsTooltip({ active, payload, label, tokens }) {
 	if (!active || !payload?.length) return null;
+
 	return (
-		<div className="custom-tooltip">
-			<div style={{ fontWeight: 700, marginBottom: 4 }}>{label}</div>
-			{payload.map((p) => (
-				<div key={p.name} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-					<span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block' }} />
-					<span>{p.name}: <strong>{p.value}</strong></span>
+		<div
+			style={{
+				background: tokens.tooltipBg,
+				border: `1px solid ${tokens.tooltipBorder}`,
+				borderRadius: 12,
+				padding: '10px 12px',
+				boxShadow: tokens.tooltipShadow,
+				fontSize: 12,
+				color: tokens.tooltipText,
+			}}
+		>
+			<div style={{ fontWeight: 700, marginBottom: 6 }}>{label}</div>
+			{payload.map((item) => (
+				<div
+					key={item.name}
+					style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+				>
+					<span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+						<span
+							style={{
+								display: 'inline-block',
+								width: 8,
+								height: 8,
+								borderRadius: '50%',
+								background: item.color,
+							}}
+						/>
+						{item.name}
+					</span>
+					<strong>{item.value}</strong>
 				</div>
 			))}
 		</div>
 	);
 }
 
+function ModelMeter({ title, score, hint, tone }) {
+	const value = Math.max(0, Math.min(100, toNumber(score)));
+	return (
+		<div className="analytics-model-row">
+			<div className="analytics-model-head">
+				<span>{title}</span>
+				<strong>{value.toFixed(1)}%</strong>
+			</div>
+			<div className="analytics-meter">
+				<span style={{ width: `${value}%`, background: tone }} />
+			</div>
+			<div className="analytics-model-hint">{hint}</div>
+		</div>
+	);
+}
+
 export default function AnalyticsPage() {
+	const theme = useThemeMode();
 	const [overview, setOverview] = useState(null);
 	const [accuracy, setAccuracy] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
+	const [lastLoadedAt, setLastLoadedAt] = useState(null);
 
-	useEffect(() => {
-		(async () => {
-			setLoading(true);
-			try {
-				const [ov, ac] = await Promise.all([
-					api.get(ENDPOINTS.OVERVIEW),
-					api.get(ENDPOINTS.MODEL_ACCURACY),
-				]);
-				setOverview(ov.data);
-				setAccuracy(ac.data);
-			} catch {
-				setError('Unable to load analytics. Check backend connection.');
-			} finally {
-				setLoading(false);
-			}
-		})();
+	const chartTokens = useMemo(() => {
+		if (theme === 'light') {
+			return {
+				grid: 'rgba(15, 23, 42, 0.10)',
+				axis: '#64748b',
+				tooltipBg: '#ffffff',
+				tooltipBorder: 'rgba(15, 23, 42, 0.16)',
+				tooltipText: '#0f172a',
+				tooltipShadow: '0 8px 24px rgba(15, 23, 42, 0.08)',
+			};
+		}
+		return {
+			grid: 'rgba(148, 163, 184, 0.18)',
+			axis: '#9fb1c8',
+			tooltipBg: '#0f172a',
+			tooltipBorder: 'rgba(148, 163, 184, 0.30)',
+			tooltipText: '#e2e8f0',
+			tooltipShadow: '0 12px 24px rgba(2, 6, 23, 0.45)',
+		};
+	}, [theme]);
+
+	const loadAnalytics = useCallback(async (silent = false) => {
+		if (!silent) setLoading(true);
+		setError('');
+
+		try {
+			const [overviewRes, accuracyRes] = await Promise.all([
+				api.get(ENDPOINTS.OVERVIEW),
+				api.get(ENDPOINTS.MODEL_ACCURACY),
+			]);
+			setOverview(overviewRes?.data || {});
+			setAccuracy(accuracyRes?.data || {});
+			setLastLoadedAt(new Date());
+		} catch {
+			setError('Unable to load analytics right now. Please verify backend connectivity.');
+		} finally {
+			setLoading(false);
+		}
 	}, []);
 
-	const pieData = useMemo(() => {
-		if (!overview) return [];
-		return [
-			{ name: 'Critical', value: overview.critical_count, color: '#ef4444' },
-			{ name: 'High', value: overview.high_risk_count, color: '#f97316' },
-			{ name: 'Medium', value: overview.medium_risk_count, color: '#eab308' },
-			{ name: 'Low', value: overview.low_risk_count, color: '#22c55e' },
-		].filter(d => d.value > 0);
+	useEffect(() => {
+		loadAnalytics();
+	}, [loadAnalytics]);
+
+	const riskHistory = useMemo(() => {
+		const rows = Array.isArray(overview?.risk_history_7_days) ? overview.risk_history_7_days : [];
+		return rows.map((row, index) => ({
+			day: dayLabel(row?.date || row?.day || row?.label, index),
+			critical: toNumber(row?.critical),
+			high: toNumber(row?.high),
+			medium: toNumber(row?.medium),
+			low: toNumber(row?.low),
+		}));
 	}, [overview]);
 
-	const riskHistory = overview?.risk_history_7_days || [];
+	const trendData = useMemo(
+		() =>
+			riskHistory.map((row) => ({
+				day: row.day,
+				riskIndex: row.critical * 4 + row.high * 3 + row.medium * 2 + row.low,
+			})),
+		[riskHistory],
+	);
 
-	if (loading) return <div className="an-card" style={{ minHeight: 300, display: 'grid', placeItems: 'center' }}><Spinner size="lg" /></div>;
+	const pieData = useMemo(() => {
+		const rows = [
+			{ name: 'Critical', value: toNumber(overview?.critical_count), color: RISK_COLORS.critical },
+			{ name: 'High', value: toNumber(overview?.high_risk_count), color: RISK_COLORS.high },
+			{ name: 'Medium', value: toNumber(overview?.medium_risk_count), color: RISK_COLORS.medium },
+			{ name: 'Low', value: toNumber(overview?.low_risk_count), color: RISK_COLORS.low },
+		];
+		return rows.filter((row) => row.value > 0);
+	}, [overview]);
 
-	return (
-		<>
-			<style>{css}</style>
-			<div style={{ color: T.white, fontFamily: "'Space Grotesk', sans-serif" }}>
-				{error && <div className="an-card" style={{ borderLeft: `3px solid ${T.red}` }}><strong style={{ color: T.red }}>{error}</strong></div>}
+	const currentRiskTotal = pieData.reduce((sum, item) => sum + item.value, 0);
+	const onTimeRate = toNumber(overview?.on_time_percentage);
+	const delayedCount = toNumber(overview?.delayed_count);
+	const reroutes = toNumber(overview?.rerouted_this_week);
+	const lossesPrevented = toNumber(overview?.financial_losses_prevented_usd);
+	const xgboostR2 = toPercent(accuracy?.xgboost_r2);
+	const gradientBoost = toPercent(accuracy?.gradient_boost_accuracy);
+	const overallAccuracy = toPercent(accuracy?.overall_model_accuracy);
 
-				{/* Page Header */}
-				<div style={{ marginBottom: 28, paddingBottom: 20, borderBottom: `1px solid ${T.border}` }}>
-					<h1 style={{ fontSize: 22, fontWeight: 700 }}>📊 Analytics & Intelligence</h1>
-					<div style={{ fontSize: 12, color: T.gray, marginTop: 4 }}>Operational metrics, ML model performance, and financial insights</div>
-				</div>
-
-				{/* KPI Row */}
-				<div className="grid-4">
-					<StatCard label="Active Shipments" value={overview?.total_active_shipments ?? 0} color={T.teal} />
-					<StatCard label="On-Time Rate" value={`${overview?.on_time_percentage ?? 0}%`} color={Number(overview?.on_time_percentage ?? 0) >= 80 ? T.green : T.amber} sub="Last 30 days" />
-					<StatCard label="Currently Delayed" value={overview?.delayed_count ?? 0} color={T.red} />
-					<StatCard label="Losses Prevented" value={`$${Number(overview?.financial_losses_prevented_usd ?? 0).toLocaleString()}`} color={T.green} sub="Via rerouting" />
-				</div>
-
-				{/* Risk Distribution Row */}
-				<div className="grid-4" style={{ marginTop: 0 }}>
-					<StatCard label="Critical Risk" value={overview?.critical_count ?? 0} color="#ef4444" />
-					<StatCard label="High Risk" value={overview?.high_risk_count ?? 0} color="#f97316" />
-					<StatCard label="Medium Risk" value={overview?.medium_risk_count ?? 0} color="#eab308" />
-					<StatCard label="Low Risk" value={overview?.low_risk_count ?? 0} color="#22c55e" />
-				</div>
-
-				{/* Charts Row */}
-				<div className="grid-2">
-					{/* Bar Chart — 7 day risk history */}
-					<div className="an-card fade" style={{ height: 340 }}>
-						<div className="section-hdr">Daily Risk Distribution (7 Days)</div>
-						<ResponsiveContainer width="100%" height="88%">
-							<BarChart data={riskHistory}>
-								<CartesianGrid strokeDasharray="4 4" stroke={T.border} />
-								<XAxis dataKey="date" tick={{ fill: T.gray, fontSize: 10 }} />
-								<YAxis tick={{ fill: T.gray, fontSize: 10 }} />
-								<Tooltip content={<CustomTooltip />} />
-								<Legend wrapperStyle={{ fontSize: 11 }} />
-								<Bar dataKey="critical" stackId="risk" fill="#ef4444" radius={[0,0,0,0]} />
-								<Bar dataKey="high" stackId="risk" fill="#f97316" />
-								<Bar dataKey="medium" stackId="risk" fill="#eab308" />
-								<Bar dataKey="low" stackId="risk" fill="#22c55e" radius={[4,4,0,0]} />
-							</BarChart>
-						</ResponsiveContainer>
-					</div>
-
-					{/* Pie Chart — Current Risk Mix */}
-					<div className="an-card fade" style={{ height: 340 }}>
-						<div className="section-hdr">Current Risk Mix</div>
-						<ResponsiveContainer width="100%" height="88%">
-							<PieChart>
-								<Pie data={pieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={3} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-									{pieData.map((s) => <Cell key={s.name} fill={s.color} />)}
-								</Pie>
-								<Tooltip content={<CustomTooltip />} />
-							</PieChart>
-						</ResponsiveContainer>
-					</div>
-				</div>
-
-				{/* ML Model Performance */}
-				<div className="an-card fade" style={{ borderLeft: `3px solid ${T.teal}` }}>
-					<div className="section-hdr">🤖 ML Model Performance</div>
-					<div className="grid-3">
-						<div>
-							<div style={{ fontSize: 11, color: T.gray }}>XGBoost Risk R²</div>
-							<div style={{ fontSize: 28, fontWeight: 700, color: T.teal, fontFamily: "'JetBrains Mono', monospace" }}>{((accuracy?.xgboost_r2 || 0) * 100).toFixed(1)}%</div>
-							<div style={{ fontSize: 10, color: T.grayDim }}>RMSE: {accuracy?.xgboost_rmse || '—'}</div>
-						</div>
-						<div>
-							<div style={{ fontSize: 11, color: T.gray }}>Delay Prediction MAE</div>
-							<div style={{ fontSize: 28, fontWeight: 700, color: T.amber, fontFamily: "'JetBrains Mono', monospace" }}>{accuracy?.random_forest_delay_mae || 0}h</div>
-							<div style={{ fontSize: 10, color: T.grayDim }}>Random Forest model</div>
-						</div>
-						<div>
-							<div style={{ fontSize: 11, color: T.gray }}>Reroute Decision</div>
-							<div style={{ fontSize: 28, fontWeight: 700, color: T.green, fontFamily: "'JetBrains Mono', monospace" }}>{accuracy?.gradient_boost_accuracy || 0}%</div>
-							<div style={{ fontSize: 10, color: T.grayDim }}>Gradient Boosting accuracy</div>
-						</div>
-					</div>
-				</div>
-
-				{/* Bottom Grid */}
-				<div className="grid-2">
-					{/* Financial Overview */}
-					<div className="an-card fade">
-						<div className="section-hdr">💰 Financial Overview</div>
-						<div className="an-row"><span className="k">Total Cargo Value Monitored</span><span className="v">${Number(overview?.total_value_monitored_usd ?? 0).toLocaleString()}</span></div>
-						<div className="an-row"><span className="k">Reroutes This Week</span><span className="v">{overview?.rerouted_this_week ?? 0}</span></div>
-						<div className="an-row"><span className="k">Financial Losses Prevented</span><span className="v" style={{ color: T.green }}>${Number(overview?.financial_losses_prevented_usd ?? 0).toLocaleString()}</span></div>
-						<div className="an-row"><span className="k">Avg Saving Per Reroute</span><span className="v">${overview?.rerouted_this_week ? Math.round(Number(overview.financial_losses_prevented_usd) / overview.rerouted_this_week).toLocaleString() : '—'}</span></div>
-					</div>
-
-					{/* Operations Stats */}
-					<div className="an-card fade">
-						<div className="section-hdr">⚙️ Operations Stats</div>
-						<div className="an-row"><span className="k">Total Predictions Made</span><span className="v">{accuracy?.total_predictions_made ?? 0}</span></div>
-						<div className="an-row"><span className="k">Correct Reroute Decisions</span><span className="v" style={{ color: T.green }}>{accuracy?.correct_reroute_decisions ?? 0}</span></div>
-						<div className="an-row"><span className="k">Incorrect Decisions</span><span className="v" style={{ color: T.red }}>{accuracy?.incorrect_reroute_decisions ?? 0}</span></div>
-						<div className="an-row"><span className="k">Overall Model Accuracy</span><span className="v" style={{ color: T.teal }}>{accuracy?.overall_model_accuracy ?? 0}%</span></div>
-					</div>
+	if (loading && !overview) {
+		return (
+			<div className="analytics-page">
+				<div className="analytics-panel analytics-loading">
+					<Spinner size="lg" />
 				</div>
 			</div>
-		</>
+		);
+	}
+
+	return (
+		<div className="analytics-page">
+			<div className="analytics-panel analytics-hero">
+				<div>
+					<div className="analytics-eyebrow">Manager Control Plane</div>
+					<h1 className="analytics-title">Analytics Intelligence</h1>
+					<p className="analytics-subtitle">
+						Operational risk distribution, model quality, and financial impact in one view.
+					</p>
+				</div>
+				<div className="analytics-hero-actions">
+					<div className="analytics-theme-pill">{theme === 'dark' ? 'Dark Theme' : 'Light Theme'}</div>
+					<button
+						type="button"
+						className="analytics-btn"
+						onClick={() => loadAnalytics(true)}
+						disabled={loading}
+					>
+						{loading ? 'Refreshing...' : 'Refresh Data'}
+					</button>
+					<div className="analytics-last-sync">Last sync: {timeLabel(lastLoadedAt)}</div>
+				</div>
+			</div>
+
+			{error ? <div className="analytics-alert">{error}</div> : null}
+
+			<div className="analytics-kpi-grid">
+				<article className="analytics-kpi analytics-kpi--teal">
+					<div className="analytics-kpi-value">{toNumber(overview?.total_active_shipments)}</div>
+					<div className="analytics-kpi-label">Active Shipments</div>
+				</article>
+				<article className="analytics-kpi analytics-kpi--green">
+					<div className="analytics-kpi-value">{onTimeRate.toFixed(1)}%</div>
+					<div className="analytics-kpi-label">On-Time Rate</div>
+				</article>
+				<article className="analytics-kpi analytics-kpi--red">
+					<div className="analytics-kpi-value">{delayedCount}</div>
+					<div className="analytics-kpi-label">Delayed Shipments</div>
+				</article>
+				<article className="analytics-kpi analytics-kpi--blue">
+					<div className="analytics-kpi-value">{compactCurrency(lossesPrevented)}</div>
+					<div className="analytics-kpi-label">Losses Prevented</div>
+				</article>
+			</div>
+
+			<div className="analytics-grid analytics-grid--2">
+				<section className="analytics-panel analytics-chart-panel">
+					<div className="analytics-panel-title">7-Day Risk Distribution</div>
+					<ResponsiveContainer width="100%" height={280}>
+						<BarChart data={riskHistory}>
+							<CartesianGrid strokeDasharray="4 4" stroke={chartTokens.grid} />
+							<XAxis dataKey="day" tick={{ fill: chartTokens.axis, fontSize: 11 }} />
+							<YAxis tick={{ fill: chartTokens.axis, fontSize: 11 }} />
+							<Tooltip content={(props) => <AnalyticsTooltip {...props} tokens={chartTokens} />} />
+							<Legend wrapperStyle={{ fontSize: 11 }} />
+							<Bar dataKey="critical" stackId="risk" fill={RISK_COLORS.critical} radius={[0, 0, 0, 0]} />
+							<Bar dataKey="high" stackId="risk" fill={RISK_COLORS.high} />
+							<Bar dataKey="medium" stackId="risk" fill={RISK_COLORS.medium} />
+							<Bar dataKey="low" stackId="risk" fill={RISK_COLORS.low} radius={[4, 4, 0, 0]} />
+						</BarChart>
+					</ResponsiveContainer>
+				</section>
+
+				<section className="analytics-panel analytics-chart-panel">
+					<div className="analytics-panel-title">Current Risk Mix</div>
+					<div className="analytics-pie-wrap">
+						<ResponsiveContainer width="100%" height={280}>
+							<PieChart>
+								<Pie
+									data={pieData}
+									dataKey="value"
+									nameKey="name"
+									innerRadius={62}
+									outerRadius={98}
+									paddingAngle={3}
+								>
+									{pieData.map((segment) => (
+										<Cell key={segment.name} fill={segment.color} />
+									))}
+								</Pie>
+								<Tooltip content={(props) => <AnalyticsTooltip {...props} tokens={chartTokens} />} />
+							</PieChart>
+						</ResponsiveContainer>
+						<div className="analytics-pie-total">
+							<strong>{currentRiskTotal}</strong>
+							<span>Active Risks</span>
+						</div>
+					</div>
+				</section>
+			</div>
+
+			<div className="analytics-grid analytics-grid--2">
+				<section className="analytics-panel analytics-chart-panel">
+					<div className="analytics-panel-title">Risk Pressure Trend</div>
+					<ResponsiveContainer width="100%" height={250}>
+						<AreaChart data={trendData}>
+							<CartesianGrid strokeDasharray="4 4" stroke={chartTokens.grid} />
+							<XAxis dataKey="day" tick={{ fill: chartTokens.axis, fontSize: 11 }} />
+							<YAxis tick={{ fill: chartTokens.axis, fontSize: 11 }} />
+							<Tooltip content={(props) => <AnalyticsTooltip {...props} tokens={chartTokens} />} />
+							<Area
+								type="monotone"
+								dataKey="riskIndex"
+								name="Risk Index"
+								stroke="#22d3ee"
+								fill="rgba(34, 211, 238, 0.28)"
+								strokeWidth={2}
+							/>
+						</AreaChart>
+					</ResponsiveContainer>
+				</section>
+
+				<section className="analytics-panel">
+					<div className="analytics-panel-title">Model Performance Snapshot</div>
+					<div className="analytics-model-list">
+						<ModelMeter
+							title="XGBoost Risk Fit"
+							score={xgboostR2}
+							hint={`RMSE ${toNumber(accuracy?.xgboost_rmse).toFixed(2)}`}
+							tone="#06b6d4"
+						/>
+						<ModelMeter
+							title="Gradient Boost Accuracy"
+							score={gradientBoost}
+							hint="Reroute classification"
+							tone="#10b981"
+						/>
+						<ModelMeter
+							title="Overall Model Accuracy"
+							score={overallAccuracy}
+							hint={`Predictions ${toNumber(accuracy?.total_predictions_made)}`}
+							tone="#8b5cf6"
+						/>
+					</div>
+					<div className="analytics-mini-grid">
+						<div className="analytics-mini-metric">
+							<span>Delay MAE</span>
+							<strong>{toNumber(accuracy?.random_forest_delay_mae).toFixed(1)}h</strong>
+						</div>
+						<div className="analytics-mini-metric">
+							<span>Correct Reroutes</span>
+							<strong>{toNumber(accuracy?.correct_reroute_decisions)}</strong>
+						</div>
+						<div className="analytics-mini-metric">
+							<span>Incorrect Reroutes</span>
+							<strong>{toNumber(accuracy?.incorrect_reroute_decisions)}</strong>
+						</div>
+						<div className="analytics-mini-metric">
+							<span>Reroutes / Week</span>
+							<strong>{reroutes}</strong>
+						</div>
+					</div>
+				</section>
+			</div>
+
+			<div className="analytics-grid analytics-grid--2">
+				<section className="analytics-panel">
+					<div className="analytics-panel-title">Financial Summary</div>
+					<div className="analytics-row">
+						<span>Total Value Monitored</span>
+						<strong>{currency(overview?.total_value_monitored_usd)}</strong>
+					</div>
+					<div className="analytics-row">
+						<span>Losses Prevented</span>
+						<strong className="good">{currency(lossesPrevented)}</strong>
+					</div>
+					<div className="analytics-row">
+						<span>Average Saving per Reroute</span>
+						<strong>
+							{reroutes > 0 ? currency(Math.round(lossesPrevented / reroutes)) : '$0'}
+						</strong>
+					</div>
+					<div className="analytics-row">
+						<span>Weekly Reroutes</span>
+						<strong>{reroutes}</strong>
+					</div>
+				</section>
+
+				<section className="analytics-panel">
+					<div className="analytics-panel-title">Operational Summary</div>
+					<div className="analytics-row">
+						<span>Total Predictions</span>
+						<strong>{toNumber(accuracy?.total_predictions_made)}</strong>
+					</div>
+					<div className="analytics-row">
+						<span>Current Critical Risks</span>
+						<strong className="warn">{toNumber(overview?.critical_count)}</strong>
+					</div>
+					<div className="analytics-row">
+						<span>Current High Risks</span>
+						<strong>{toNumber(overview?.high_risk_count)}</strong>
+					</div>
+					<div className="analytics-row">
+						<span>System On-Time Rate</span>
+						<strong className="good">{onTimeRate.toFixed(1)}%</strong>
+					</div>
+				</section>
+			</div>
+		</div>
 	);
 }

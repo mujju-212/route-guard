@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -277,3 +277,267 @@ async def assign_resources(
 
 	db.commit()
 	return {'message': 'Resources assigned successfully'}
+
+
+# ── /manager/drivers (POST — create) ─────────────────────────────────────────
+
+@router.post('/drivers')
+async def create_driver(
+	payload: dict = Body(...),
+	current_user: User = Depends(require_role(['manager'])),
+	db: Session = Depends(get_db),
+):
+	"""Manager creates a new driver account directly."""
+	from app.utils.auth import hash_password
+	email = str(payload.get('email', '')).strip().lower()
+	if not email:
+		raise HTTPException(status_code=400, detail='Email required')
+	if db.query(User).filter(User.email == email).first():
+		raise HTTPException(status_code=409, detail='Email already registered')
+
+	driver = User(
+		full_name=str(payload.get('full_name', 'Driver')).strip(),
+		email=email,
+		password_hash=hash_password(str(payload.get('password', 'RouteGuard2024!'))),
+		role=UserRole.DRIVER,
+		phone_number=payload.get('phone_number'),
+		country=payload.get('country'),
+		company_name=payload.get('company_name'),
+		email_verified=True,
+		is_active=True,
+	)
+	db.add(driver)
+	db.commit()
+	db.refresh(driver)
+	return {
+		'user_id': str(driver.user_id),
+		'full_name': driver.full_name,
+		'email': driver.email,
+		'status': 'available',
+		'message': 'Driver account created successfully',
+	}
+
+
+@router.patch('/drivers/{driver_id}/toggle-active')
+async def toggle_driver_active(
+	driver_id: str,
+	current_user: User = Depends(require_role(['manager'])),
+	db: Session = Depends(get_db),
+):
+	"""Activate or deactivate a driver account."""
+	driver = db.query(User).filter(User.user_id == UUID(driver_id), User.role == UserRole.DRIVER).first()
+	if not driver:
+		raise HTTPException(status_code=404, detail='Driver not found')
+	driver.is_active = not driver.is_active
+	db.commit()
+	return {'user_id': driver_id, 'is_active': driver.is_active}
+
+
+@router.get('/drivers/all')
+async def get_all_drivers(
+	current_user: User = Depends(require_role(['manager'])),
+	db: Session = Depends(get_db),
+):
+	"""All drivers including inactive, with assignment status."""
+	_ = current_user
+	active_filter = Shipment.current_status.notin_([ShipmentStatus.DELIVERED, ShipmentStatus.CANCELLED])
+	drivers = db.query(User).filter(User.role == UserRole.DRIVER).all()
+
+	assignment_counts: dict = {}
+	rows = (
+		db.query(Shipment.assigned_driver_id, func.count(Shipment.shipment_id))
+		.filter(active_filter, Shipment.assigned_driver_id.isnot(None))
+		.group_by(Shipment.assigned_driver_id)
+		.all()
+	)
+	for did, cnt in rows:
+		assignment_counts[str(did)] = cnt
+
+	result = []
+	for d in drivers:
+		uid = str(d.user_id)
+		active_shipments = assignment_counts.get(uid, 0)
+		result.append({
+			'user_id': uid,
+			'full_name': d.full_name,
+			'email': d.email,
+			'phone_number': d.phone_number,
+			'company_name': d.company_name,
+			'country': d.country,
+			'is_active': d.is_active,
+			'active_shipments': active_shipments,
+			'status': 'en-route' if active_shipments > 0 else ('available' if d.is_active else 'inactive'),
+			'created_at': d.created_at.isoformat() if d.created_at else None,
+		})
+	return result
+
+
+# ── /manager/fleet ────────────────────────────────────────────────────────────
+
+@router.get('/fleet')
+async def get_fleet(
+	fleet_type: str | None = Query(None),
+	current_user: User = Depends(require_role(['manager'])),
+	db: Session = Depends(get_db),
+):
+	"""List all fleet assets (vessels + trucks represented as users with company_name='truck')."""
+	from app.models.vessel import Vessel, VesselStatus
+	_ = current_user
+
+	# Build vessels list
+	vessel_q = db.query(Vessel)
+	vessels_data = []
+	for v in vessel_q.all():
+		# Find active shipment for this vessel
+		active_shp = (
+			db.query(Shipment)
+			.filter(
+				Shipment.assigned_vessel_id == v.vessel_id,
+				Shipment.current_status.notin_([ShipmentStatus.DELIVERED, ShipmentStatus.CANCELLED]),
+			)
+			.first()
+		)
+		driver = db.query(User).filter(User.user_id == v.owner_user_id).first() if v.owner_user_id else None
+		vessels_data.append({
+			'fleet_id': str(v.vessel_id),
+			'fleet_type': 'vessel',
+			'name': v.vessel_name,
+			'subtype': v.vessel_type.value if hasattr(v.vessel_type, 'value') else str(v.vessel_type),
+			'capacity': f'{v.gross_tonnage or "—"} GT / {v.deadweight or "—"} DWT',
+			'flag_country': v.flag_country,
+			'imo_number': v.imo_number,
+			'mmsi_number': v.mmsi_number,
+			'built_year': v.built_year,
+			'status': v.current_status.value if hasattr(v.current_status, 'value') else str(v.current_status),
+			'is_in_transit': bool(active_shp),
+			'current_shipment_id': str(active_shp.shipment_id) if active_shp else None,
+			'current_shipment_tracking': active_shp.tracking_number if active_shp else None,
+			'assigned_driver_id': str(v.owner_user_id) if v.owner_user_id else None,
+			'assigned_driver_name': driver.full_name if driver else None,
+		})
+
+	if fleet_type == 'vessel':
+		return {'vessels': vessels_data, 'trucks': []}
+
+	# Trucks: not in DB schema — return empty placeholder list (manager can add mock ones)
+	trucks_data: list[dict] = []
+
+	return {'vessels': vessels_data, 'trucks': trucks_data}
+
+
+@router.post('/fleet/vessels')
+async def add_vessel(
+	payload: dict = Body(...),
+	current_user: User = Depends(require_role(['manager'])),
+	db: Session = Depends(get_db),
+):
+	"""Add a new vessel to the fleet."""
+	from app.models.vessel import Vessel, VesselStatus, VesselType
+	_ = current_user
+
+	vtype_str = str(payload.get('vessel_type', 'general')).lower()
+	try:
+		vtype = VesselType(vtype_str)
+	except ValueError:
+		vtype = VesselType.GENERAL
+
+	vessel = Vessel(
+		vessel_name=str(payload.get('vessel_name', 'Unnamed Vessel')).strip(),
+		vessel_type=vtype,
+		flag_country=payload.get('flag_country'),
+		imo_number=payload.get('imo_number'),
+		mmsi_number=payload.get('mmsi_number'),
+		gross_tonnage=payload.get('gross_tonnage'),
+		deadweight=payload.get('deadweight'),
+		max_speed=payload.get('max_speed'),
+		built_year=payload.get('built_year'),
+		current_status=VesselStatus.DOCKED,
+	)
+	db.add(vessel)
+	db.commit()
+	db.refresh(vessel)
+	return {
+		'fleet_id': str(vessel.vessel_id),
+		'fleet_type': 'vessel',
+		'name': vessel.vessel_name,
+		'message': 'Vessel added successfully',
+	}
+
+
+@router.patch('/fleet/vessels/{vessel_id}/assign-driver')
+async def assign_driver_to_vessel(
+	vessel_id: str,
+	driver_id: str = Body(..., embed=True),
+	current_user: User = Depends(require_role(['manager'])),
+	db: Session = Depends(get_db),
+):
+	"""Assign an available driver/captain to a vessel."""
+	from app.models.vessel import Vessel
+	vessel = db.query(Vessel).filter(Vessel.vessel_id == UUID(vessel_id)).first()
+	if not vessel:
+		raise HTTPException(status_code=404, detail='Vessel not found')
+
+	driver = db.query(User).filter(User.user_id == UUID(driver_id), User.role == UserRole.DRIVER).first()
+	if not driver:
+		raise HTTPException(status_code=404, detail='Driver not found')
+
+	vessel.owner_user_id = driver.user_id
+	db.commit()
+	return {'message': f'Driver {driver.full_name} assigned to {vessel.vessel_name}'}
+
+
+@router.patch('/fleet/vessels/{vessel_id}/status')
+async def update_vessel_status(
+	vessel_id: str,
+	new_status: str = Body(..., embed=True),
+	current_user: User = Depends(require_role(['manager'])),
+	db: Session = Depends(get_db),
+):
+	"""Update vessel status (active, maintenance, docked, decommissioned)."""
+	from app.models.vessel import Vessel, VesselStatus
+	vessel = db.query(Vessel).filter(Vessel.vessel_id == UUID(vessel_id)).first()
+	if not vessel:
+		raise HTTPException(status_code=404, detail='Vessel not found')
+	try:
+		vessel.current_status = VesselStatus(new_status)
+	except ValueError:
+		raise HTTPException(status_code=400, detail=f'Invalid status: {new_status}')
+	db.commit()
+	return {'message': 'Status updated', 'new_status': new_status}
+
+
+@router.get('/fleet/available-drivers')
+async def get_available_drivers_for_fleet(
+	current_user: User = Depends(require_role(['manager'])),
+	db: Session = Depends(get_db),
+):
+	"""Return only unassigned (available) drivers for fleet assignment dropdown."""
+	from app.models.vessel import Vessel
+	_ = current_user
+
+	# Get driver IDs already assigned to a vessel
+	assigned_to_vessel = {
+		str(v.owner_user_id)
+		for v in db.query(Vessel).filter(Vessel.owner_user_id.isnot(None)).all()
+	}
+	# Get driver IDs on active shipments
+	active_filter = Shipment.current_status.notin_([ShipmentStatus.DELIVERED, ShipmentStatus.CANCELLED])
+	on_shipment = {
+		str(row[0])
+		for row in db.query(Shipment.assigned_driver_id)
+		.filter(active_filter, Shipment.assigned_driver_id.isnot(None))
+		.all()
+	}
+	busy = assigned_to_vessel | on_shipment
+
+	drivers = db.query(User).filter(User.role == UserRole.DRIVER, User.is_active.is_(True)).all()
+	return [
+		{
+			'user_id': str(d.user_id),
+			'full_name': d.full_name,
+			'country': d.country,
+			'company_name': d.company_name,
+		}
+		for d in drivers
+		if str(d.user_id) not in busy
+	]

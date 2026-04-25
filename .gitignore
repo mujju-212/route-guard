@@ -26,6 +26,7 @@ ppt/
 
 # ── Development docs (local only) ───────────────────────
 docs/
+assets/sideimg.png
 
 # ── IDE & OS ────────────────────────────────────────────
 .idea/

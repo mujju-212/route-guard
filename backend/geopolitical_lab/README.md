@@ -5,10 +5,9 @@ It is intentionally separated from your current RouteGuard backend flow.
 
 ## What it does
 
-- Pulls events from mock/live providers (NewsAPI, GDELT, NOAA).
-- Extracts structured maritime risk zones using:
-  - rules-based parser (default), or
-  - OpenAI (`gpt-4o-mini`) when key is provided.
+- Pulls events from mock/live providers (GDELT, NOAA).
+- Accepts direct structured event input over API.
+- Extracts maritime risk zones using deterministic structured rules only.
 - Keeps active danger zones with TTL.
 - Evaluates route waypoints against zones and returns:
   - `blocked` (hard block when severe war/sanction zones are intersected)
@@ -19,7 +18,7 @@ It is intentionally separated from your current RouteGuard backend flow.
 
 - `backend/geopolitical_lab/main.py` - FastAPI app entrypoint
 - `backend/geopolitical_lab/providers.py` - ingest providers
-- `backend/geopolitical_lab/llm_extractor.py` - rules/LLM extraction
+- `backend/geopolitical_lab/llm_extractor.py` - structured rules extraction
 - `backend/geopolitical_lab/zone_engine.py` - zone lifecycle + route scoring
 - `backend/geopolitical_lab/seed_data.py` - baseline zones + deterministic mock events
 - `backend/geopolitical_lab/.env.example` - environment template
@@ -29,7 +28,7 @@ It is intentionally separated from your current RouteGuard backend flow.
 1. Copy env template:
 
 ```powershell
-Copy-Item backend\geopolitical_lab\.env.example backend\.env
+Copy-Item backend\geopolitical_lab\.env.example .env
 ```
 
 2. Install dependencies (uses your existing backend requirements plus `httpx`):
@@ -50,19 +49,9 @@ python -m uvicorn backend.geopolitical_lab.main:app --host 0.0.0.0 --port 8010 -
 
 ## API keys needed
 
-### For first test (no keys needed)
-
-- None. Keep `LLM_PROVIDER=rules` and use `POST /zones/refresh?use_mock=true`.
-
-### For live mode
-
-- `NEWSAPI_KEY` (recommended) for high-quality maritime news feed.
-- `OPENAI_API_KEY` (optional) for LLM JSON extraction. If not present, rules parser is used.
-
-### Not required
-
-- GDELT key: not required (public API).
-- NOAA key: not required (public API).
+- None required.
+- GDELT is public.
+- NOAA weather.gov is public.
 
 ## Quick test flow
 
@@ -77,6 +66,20 @@ POST /zones/reset-seed
 ```http
 POST /zones/refresh?use_mock=true
 ```
+
+Live real-data refresh (public feeds):
+
+```http
+POST /zones/refresh?use_mock=false
+```
+
+Response includes real analysis metadata:
+
+- `timestamp` -> analysis datetime (UTC)
+- `provider_counts` -> events pulled per provider
+- `total_events` -> total events analyzed
+- `zones_created` -> new zones produced from current run
+- `zones_total_active` -> active zones after refresh
 
 3. List active zones:
 
@@ -103,6 +106,30 @@ Content-Type: application/json
 ```
 
 Expected: route intersects Red Sea war zone -> `blocked=true` and high risk score.
+
+## Structured input example
+
+Use this to submit clean, explicit events without any external news parsing:
+
+```http
+POST /zones/ingest-structured?reset_to_seed=false
+Content-Type: application/json
+
+{
+  "events": [
+    {
+      "title": "Manual conflict alert near Bab el-Mandeb",
+      "description": "Operator-reported military threat near shipping lane",
+      "source": "manual",
+      "latitude": 12.5,
+      "longitude": 43.2,
+      "event_type_hint": "war",
+      "severity_hint": 9.4,
+      "radius_km_hint": 280
+    }
+  ]
+}
+```
 
 ## Notes
 

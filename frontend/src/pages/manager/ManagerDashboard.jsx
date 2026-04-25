@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import MissionControl from './MissionControl';
 import AnalyticsPage from './AnalyticsPage';
+import AlertCenter from './AlertCenter';
 import CargoTrackMap from '../../components/map/CargoTrackMap';
 
 // No custom tabs — AppShell Sidebar handles all navigation
@@ -30,8 +31,17 @@ export default function ManagerDashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', height: isMap ? 'calc(100vh - 56px)' : 'auto' }}>
       {tab === 'dashboard'     && <MissionControl user={user} />}
       {tab === 'shipments'     && <div style={{ flex: 1, minHeight: 0 }}><CargoTrackMap /></div>}
-      {tab === 'alerts'        && <Placeholder icon="🚨" title="Alerts Center" desc="View and act on all risk alerts with AI-suggested actions." />}
-      {tab === 'requests'      && <Placeholder icon="📋" title="Consignment Requests" desc="Review incoming orders and plan routes with AI." />}
+      {tab === 'alerts'        && <AlertCenter />}
+      {tab === 'requests'      && (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 400 }}>
+          <Placeholder icon="📋" title="Consignment Requests" desc="Review incoming sender requests in Offer Console and submit quotes." />
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: -80 }}>
+            <button type="button" className="btn-primary" onClick={() => navigate('/manager/offers')}>
+              Open Offer Console
+            </button>
+          </div>
+        </div>
+      )}
       {tab === 'consignments'  && <Placeholder icon="📦" title="Active Consignments" desc="Track all shipments with status filters and detail views." />}
       {tab === 'drivers'       && <Placeholder icon="👤" title="Driver Management" desc="Manage drivers, view applications, accept or reject." />}
       {tab === 'fleet'         && <Placeholder icon="🚢" title="Fleet Management" desc="Add vehicles/vessels and assign available drivers." />}

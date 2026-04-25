@@ -15,6 +15,9 @@ from app.models.shipment import PriorityLevel, RiskLevel, Shipment, ShipmentStat
 from app.models.status_update import StatusUpdate
 from app.models.user import AccountType, User, UserRole
 from app.models.user_document import UserDocument
+from app.models.user_address import UserAddress
+from app.models.shipment_document import ShipmentDocument
+from app.models.shipment_review import ShipmentReview
 from app.models.verification_otp import VerificationOTP
 from app.models.vessel import Vessel, VesselStatus, VesselType
 
@@ -50,6 +53,9 @@ __all__ = [
 	'AccountType',
 	'User',
 	'UserDocument',
+	'UserAddress',
+	'ShipmentDocument',
+	'ShipmentReview',
 	'UserRole',
 	'VerificationOTP',
 	'Vessel',

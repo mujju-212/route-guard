@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.postgres import get_db
@@ -14,6 +14,7 @@ from app.schemas.auth import (
 	UserLogin,
 	UserRegister,
 	UserResponse,
+	UserUpdateRequest,
 	VerifyOTPRequest,
 )
 from app.services.auth_service import (
@@ -56,6 +57,33 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
 
 @router.get('/me', response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
+	return UserResponse.model_validate(current_user)
+
+
+@router.put('/me', response_model=UserResponse)
+async def update_me(
+	payload: UserUpdateRequest,
+	current_user: User = Depends(get_current_user),
+	db: Session = Depends(get_db),
+):
+	email_normalized = str(payload.email).strip().lower()
+	existing = (
+		db.query(User)
+		.filter(User.email == email_normalized, User.user_id != current_user.user_id)
+		.first()
+	)
+	if existing:
+		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Email already registered')
+
+	current_user.full_name = payload.full_name.strip()
+	current_user.email = email_normalized
+	current_user.account_type = payload.account_type
+	current_user.company_name = payload.company_name
+	current_user.phone_number = payload.phone_number
+	current_user.country = payload.country
+
+	db.commit()
+	db.refresh(current_user)
 	return UserResponse.model_validate(current_user)
 
 

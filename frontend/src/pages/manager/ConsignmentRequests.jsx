@@ -8,11 +8,11 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 
 const STATUS_META = {
+	draft:{ label:'NEW', color:'#06B6D4', bg:'rgba(6,182,212,0.12)' },
   sent:{ label:'NEW', color:'#3B82F6', bg:'rgba(59,130,246,0.12)' },
   negotiating:{ label:'NEGOTIATING', color:'#F59E0B', bg:'rgba(245,158,11,0.12)' },
   accepted:{ label:'ACCEPTED', color:'#10B981', bg:'rgba(16,185,129,0.12)' },
   rejected:{ label:'REJECTED', color:'#EF4444', bg:'rgba(239,68,68,0.12)' },
-  draft:{ label:'DRAFT', color:'#8A9BB5', bg:'rgba(138,155,181,0.1)' },
 };
 
 const CARGO_LABELS = { standard:'Standard Dry', electronics:'Electronics', refrigerated:'Refrigerated', hazardous:'Hazardous', liquid_bulk:'Liquid Bulk', oversized:'Oversized', livestock:'Livestock', perishable:'Perishable', pharmaceutical:'Pharmaceutical' };
@@ -134,7 +134,7 @@ function AIPlan({ req, drivers, vessels }) {
   );
 }
 
-const TABS = ['all','sent','negotiating','accepted'];
+const TABS = ['all','draft','sent','negotiating','accepted'];
 
 export default function ConsignmentRequests() {
   const { user } = useAuth();
@@ -196,7 +196,13 @@ export default function ConsignmentRequests() {
   useEffect(() => { if (selected) loadThread(selected.request_id); }, [selected]);
 
   const filtered = requests.filter(r => tab === 'all' || r.status === tab);
-  const counts = { all: requests.length, sent: requests.filter(r=>r.status==='sent').length, negotiating: requests.filter(r=>r.status==='negotiating').length, accepted: requests.filter(r=>r.status==='accepted').length };
+  const counts = {
+    all: requests.length,
+    draft: requests.filter(r=>r.status==='draft').length,
+    sent: requests.filter(r=>r.status==='sent').length,
+    negotiating: requests.filter(r=>r.status==='negotiating').length,
+    accepted: requests.filter(r=>r.status==='accepted').length,
+  };
 
   const handleSendOffer = async () => {
     if (!offerAmt || !selected) return;

@@ -243,6 +243,30 @@ async def generate_alternate_routes(
 		dist_c = engine.get_route(s_lon, s_lat, d_lon, d_lat, p_no_panama)
 		dist_c_km = dist_c['distKM'] if dist_c else dist_a_km
 
+		# ── Geography-aware route naming ─────────────────────────────────────
+		o_lat, o_lon = origin_coords
+		d_lat2, d_lon2 = destination_coords
+		suez_relevant   = (o_lon > 30 and d_lon2 < 30 and d_lat2 > 20) or (o_lon < 30 and d_lon2 > 30 and o_lat > 20)
+		panama_relevant = (o_lon > 0  and d_lon2 < -30) or (o_lon < -30 and d_lon2 > 0)
+		transpacific    = (o_lon > 100 and d_lon2 < -60) or (o_lon < -60 and d_lon2 > 100)
+		indian_ocean    = (20 < o_lon < 100 and 20 < d_lon2 < 100) or (o_lat < 30 and d_lat2 < 30 and o_lon > 40 and d_lon2 > 40)
+
+		if suez_relevant:
+			name_b, desc_b = 'Cape of Good Hope Route', 'Bypasses Suez Canal via Cape of Good Hope — avoids geopolitical risk'
+			name_c, desc_c = 'Accelerated Direct Route', 'Optimised path avoiding high-traffic straits'
+		elif panama_relevant:
+			name_b, desc_b = 'Cape Horn Route', 'Bypasses Panama Canal via Cape Horn — avoids canal congestion'
+			name_c, desc_c = 'Northern Pacific Arc', 'Higher latitude path to avoid tropical weather systems'
+		elif transpacific:
+			name_b, desc_b = 'Northern Great Circle', 'High-latitude arc — shorter distance, avoids storm belt'
+			name_c, desc_c = 'Southern Pacific Route', 'Lower latitude corridor for calmer weather conditions'
+		elif indian_ocean:
+			name_b, desc_b = 'Arabian Sea Corridor', 'Western Indian Ocean path — lower piracy risk zone'
+			name_c, desc_c = 'Bay of Bengal Route', 'Eastern Indian Ocean corridor via Bay of Bengal'
+		else:
+			name_b, desc_b = 'Northern Deviation', 'Higher latitude arc to avoid weather on primary path'
+			name_c, desc_c = 'Southern Deviation', 'Lower latitude arc with lower weather volatility'
+
 		return [
 			{
 				'name': 'Optimal Remaining Route',
@@ -254,8 +278,8 @@ async def generate_alternate_routes(
 				'start_lon': start_coords[1],
 			},
 			{
-				'name': 'Cape of Good Hope',
-				'description': 'Avoids Suez Canal from current position — lower geopolitical risk',
+				'name': name_b,
+				'description': desc_b,
 				'waypoints': wps_b,
 				'extra_distance_km': round(max(0, dist_b_km - dist_a_km), 1),
 				'from_current': True,
@@ -263,8 +287,8 @@ async def generate_alternate_routes(
 				'start_lon': start_coords[1],
 			},
 			{
-				'name': 'Panama-Free Route',
-				'description': 'Bypasses Panama Canal from current position',
+				'name': name_c,
+				'description': desc_c,
 				'waypoints': wps_c,
 				'extra_distance_km': round(max(0, dist_c_km - dist_a_km), 1),
 				'from_current': True,
@@ -272,6 +296,7 @@ async def generate_alternate_routes(
 				'start_lon': start_coords[1],
 			},
 		]
+
 	except Exception:
 		# Engine unavailable — fall back to geodesic approximations from current position
 		s_coords = current_coords if current_coords is not None else origin_coords
@@ -329,6 +354,9 @@ async def score_alternate_route(
 	route_waypoints: list[dict[str, float]],
 	db: Session,
 	base_distance_km: float | None = None,
+	from_current: bool = True,
+	start_lat: float | None = None,
+	start_lon: float | None = None,
 ) -> dict[str, Any]:
 	"""
 	ML-score an alternate route and persist it to the DB.
@@ -337,8 +365,10 @@ async def score_alternate_route(
 		shipment_id:      UUID string of the shipment.
 		route_waypoints:  List of {lat, lng} dicts for the candidate route.
 		db:               SQLAlchemy session.
-		base_distance_km: Distance of the current active route (km).
-		                  If omitted it is read from the shipment's active DB route.
+		base_distance_km: Remaining distance from current position to destination (km).
+		                  If omitted it is measured from the shipment's active DB route.
+		from_current:     Whether route starts from vessel's live position.
+		start_lat/lon:    Coordinates where the alternate route begins.
 	"""
 	from app.models.shipment import Shipment
 
@@ -349,12 +379,10 @@ async def score_alternate_route(
 	# ── Real distance of this alternate route ────────────────────────────────
 	alt_dist_km = _polyline_distance_km(route_waypoints)
 
-	# ── Base (active / optimal) route distance ────────────────────────────────
+	# ── Base (remaining) route distance ───────────────────────────────────────
 	if base_distance_km is None:
-		active_route = next((r for r in shipment.routes if r.is_active), None)
-		if active_route is None and shipment.routes:
-			active_route = shipment.routes[0]
-		base_distance_km = float(active_route.total_distance_km) if active_route and active_route.total_distance_km else alt_dist_km
+		# Fallback: straight-line distance from first waypoint to last
+		base_distance_km = alt_dist_km
 
 	extra_distance = max(0.0, alt_dist_km - base_distance_km)
 	extra_time     = round(extra_distance / 28.0, 2)   # hrs at avg vessel speed 28 km/h
@@ -381,6 +409,32 @@ async def score_alternate_route(
 		+ (extra_distance / 100) * 0.2
 	)
 
+	# ── Financial analytics ─────────────────────────────────────────────────
+	# Current route expected loss (risk-based)
+	current_risk_score = float(shipment.current_risk_score or 50)
+	current_loss_usd   = round(current_risk_score * 620, 2)
+	alt_loss_usd       = round(risk_result['risk_score'] * 620 * 0.72, 2)  # alt risk avoids 28% of loss
+	profit_saving_usd  = round(max(0.0, current_loss_usd - alt_loss_usd - extra_cost), 2)
+
+	# Time saving vs current route (base_distance_km / 28 kmh = base duration)
+	base_duration_hr   = round(base_distance_km / 28.0, 2) if base_distance_km else round(alt_dist_km / 28.0, 2)
+	alt_duration_hr    = round(alt_dist_km / 28.0, 2)
+	time_saving_hr     = round(base_duration_hr - alt_duration_hr, 2)  # positive = faster
+	speed_gain_pct     = round((time_saving_hr / base_duration_hr) * 100, 1) if base_duration_hr > 0 else 0.0
+
+	# ── Delete stale alternates for this shipment before adding new ──────────
+	# This prevents accumulation of hundreds of duplicate routes in the DB.
+	# We keep only the 3 most recent alternate slots.
+	old_alts = db.query(Route).filter(
+		Route.shipment_id == UUID(shipment_id),
+		Route.route_type != RouteType.ORIGINAL,
+		Route.is_active.is_(False),
+	).order_by(Route.created_at.asc() if hasattr(Route, 'created_at') else Route.route_id.asc()).all()
+	if len(old_alts) >= 3:
+		for r in old_alts[:-2]:  # keep the 2 most recent, delete the rest
+			db.delete(r)
+		db.flush()
+
 	# ── Pick route type slot ────────────────────────────────────────────────
 	existing_alts = db.query(Route).filter(
 		Route.shipment_id == UUID(shipment_id),
@@ -388,6 +442,7 @@ async def score_alternate_route(
 	).count()
 	alt_types = [RouteType.ALTERNATE_1, RouteType.ALTERNATE_2, RouteType.ALTERNATE_3]
 	route_type = alt_types[min(existing_alts, len(alt_types) - 1)]
+
 
 	# ── Persist to DB ────────────────────────────────────────────────────────
 	new_route = Route(
@@ -397,7 +452,7 @@ async def score_alternate_route(
 		origin_port_id=shipment.origin_port_id,
 		destination_port_id=shipment.destination_port_id,
 		total_distance_km=round(alt_dist_km, 2),
-		estimated_duration_hr=round(alt_dist_km / 28.0, 2),
+		estimated_duration_hr=round(alt_duration_hr, 2),
 		estimated_fuel_cost=round(alt_dist_km * 2.4, 2),
 		waypoints=route_waypoints,
 		risk_score_at_creation=Decimal(str(round(risk_result['risk_score'], 2))),
@@ -417,6 +472,16 @@ async def score_alternate_route(
 		'extra_time_hours':   Decimal(str(round(extra_time, 2))),
 		'extra_cost_usd':     Decimal(str(round(extra_cost, 2))),
 		'optimization_score': Decimal(str(round(optimization_score, 2))),
-		'recommended':        risk_result['risk_score'] < 55,
+		# Financial analytics
+		'profit_saving_usd':  round(profit_saving_usd, 2),
+		'time_saving_hr':     round(time_saving_hr, 2),
+		'delivery_speed_gain_pct': round(speed_gain_pct, 1),
+		'alt_duration_hr':    round(alt_duration_hr, 2),
+		'alt_loss_usd':       round(alt_loss_usd, 2),
+		'recommended':        optimization_score < 40 and risk_result['risk_score'] < current_risk_score,
+		# Passthrough rerouting context
+		'from_current':       from_current,
+		'start_lat':          start_lat,
+		'start_lon':          start_lon,
 		'waypoints':          route_waypoints,
 	}

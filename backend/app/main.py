@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import app.models  # noqa: F401
 from app.config import settings
 from app.database.postgres import Base, engine
-from app.routers import alerts, analytics, auth, driver, manager, monitoring, quotes, sea_routing, shipper, shipments, websocket
+from app.routers import ais, alerts, analytics, auth, driver, manager, monitoring, quotes, sea_routing, shipper, shipments, websocket
 
 
 @asynccontextmanager
@@ -90,6 +90,23 @@ app.include_router(quotes.router,                          tags=["💬 Quotes & 
 app.include_router(shipper.router,                         tags=["📮 Shipper Operations"])
 app.include_router(websocket.router,                       tags=["🔌 WebSocket"])
 app.include_router(sea_routing.router, prefix="/sea-route", tags=["🌊 Sea Routing"])
+app.include_router(ais.router,          prefix="/ais",       tags=["📡 AIS Ship Tracking"])
+
+# ── Mount Geopolitical Lab as sub-app at /geo ──────────────────────────────────
+try:
+    from backend.geopolitical_lab.main import app as geo_app
+    app.mount("/geo", geo_app)
+    print("[OK] Geopolitical Lab mounted at /geo")
+except Exception:
+    try:
+        # Fallback: when running from backend/ directory
+        import importlib, sys
+        sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1]))
+        geo_mod = importlib.import_module("geopolitical_lab.main")
+        app.mount("/geo", geo_mod.app)
+        print("[OK] Geopolitical Lab mounted at /geo (fallback)")
+    except Exception as exc:
+        print(f"[WARN] Geopolitical Lab not mounted: {exc}")
 
 
 # ── Root endpoints ──────────────────────────────────────────────────────────────

@@ -40,7 +40,7 @@ const ICON_MAP = {
 const NAV_CONFIG = {
 	manager: [
 		{ label: 'Mission Control',      icon: 'LayoutDashboard', path: '/manager',                  section: 'OVERVIEW' },
-		{ label: 'Communication',        icon: 'MessageSquare',   path: '/manager?tab=requests',     section: null },
+		{ label: 'Communication',        icon: 'MessageSquare',   path: '/manager/communication',    section: null },
 		{ label: 'Live Map',             icon: 'Anchor',          path: '/manager?tab=shipments',     section: null },
 		{ label: 'Alerts Center',        icon: 'Bell',            path: '/manager?tab=alerts',        section: null, badge: '4' },
 		{ label: 'Consignment Requests', icon: 'PackagePlus',     path: '/manager?tab=requests',      section: 'OPERATIONS', badge: '3' },

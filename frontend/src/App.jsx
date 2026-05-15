@@ -6,6 +6,7 @@ import DriverDashboard from './pages/driver/DriverDashboard';
 import AnalyticsPage from './pages/manager/AnalyticsPage';
 import ManagerDashboard from './pages/manager/ManagerDashboard';
 import ManagerOfferConsole from './pages/manager/ManagerOfferConsole';
+import ManagerCommunication from './pages/manager/ManagerCommunication';
 import PortStatusBoard from './pages/manager/PortStatusBoard';
 import ShipmentDetail from './pages/manager/ShipmentDetail';
 import ConfirmDelivery from './pages/receiver/ConfirmDelivery';
@@ -119,10 +120,10 @@ export default function App() {
 					}
 				/>
 				<Route
-					path="manager/offers"
+					path="manager/communication"
 					element={
 						<RoleGuard allowedRoles={['manager']}>
-							<ManagerOfferConsole />
+							<ManagerCommunication />
 						</RoleGuard>
 					}
 				/>

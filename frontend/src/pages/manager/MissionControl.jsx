@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, CircleMarker, Polyline, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Circle, Polyline, Tooltip } from 'react-leaflet';
 import { api } from '../../config/api';
 import { ENDPOINTS } from '../../config/endpoints';
+import axios from 'axios';
+
+const GEO_LAB_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/geo';
 
 // ── CSS — uses only CSS variables so light/dark theme toggle works ─────────────
 const css = `
@@ -34,6 +37,10 @@ const css = `
 .qa-btn:hover{border-color:#00D4B4;background:rgba(0,212,180,.06);}
 @keyframes mcpulse{0%,100%{opacity:1;}50%{opacity:.4;}}
 .ldot{width:6px;height:6px;background:#10B981;border-radius:50%;display:inline-block;animation:mcpulse 2s infinite;}
+@keyframes zonePulse{0%,100%{opacity:.55;}50%{opacity:.3;}}
+.geo-zone-circle{animation:zonePulse 3s ease-in-out infinite;}
+.geo-toggle.on{background:rgba(239,68,68,.12)!important;color:#EF4444!important;border-color:#EF4444!important;}
+.ais-toggle.on{background:rgba(59,130,246,.12)!important;color:#3B82F6!important;border-color:#3B82F6!important;}
 `;
 
 const RC = {critical:'#EF4444',high:'#F97316',medium:'#F59E0B',low:'#10B981'};
@@ -69,6 +76,13 @@ export default function MissionControl({ user }) {
   const [alerts, setAlerts] = useState(FB_ALERTS);
   const [dummy, setDummy] = useState(true);
   const [mode, setMode] = useState('all');
+  const [showGeoZones, setShowGeoZones] = useState(true);
+  const [geoZones, setGeoZones] = useState([]);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [showAIS, setShowAIS] = useState(false);
+  const [aisVessels, setAisVessels] = useState([]);
+  const [aisLoading, setAisLoading] = useState(false);
+  const [aisRegion, setAisRegion] = useState(null);
   const mapRef = useRef(null);
 
   useEffect(() => {
@@ -101,6 +115,29 @@ export default function MissionControl({ user }) {
         }
         if (gotReal) setDummy(false);
       } catch {}
+    })();
+  }, []);
+
+  // Fetch geopolitical danger zones from standalone lab
+  useEffect(() => {
+    (async () => {
+      setGeoLoading(true);
+      try {
+        // First seed, then refresh with mock data for reliable zones
+        await axios.post(`${GEO_LAB_URL}/zones/reset-seed`).catch(() => {});
+        await axios.post(`${GEO_LAB_URL}/zones/refresh?use_mock=true`, null, { timeout: 10000 }).catch(() => {});
+        const res = await axios.get(`${GEO_LAB_URL}/zones/active?min_severity=3`);
+        if (res.data?.length) setGeoZones(res.data);
+      } catch {
+        // Geo lab not running — use seed fallback data
+        setGeoZones([
+          { zone_id:'DZ-001', name:'Red Sea / Bab el-Mandeb', zone_type:'war_zone', severity:9.5, center_lat:12.5, center_lng:43.3, radius_km:350, routing_action:'hard_block', summary:'Active military attacks on commercial vessels.' },
+          { zone_id:'DZ-004', name:'Black Sea', zone_type:'war_zone', severity:8.0, center_lat:43.0, center_lng:34.0, radius_km:300, routing_action:'hard_block', summary:'Armed conflict and mine risks in maritime corridors.' },
+          { zone_id:'DZ-002', name:'Gulf of Guinea', zone_type:'piracy_zone', severity:7.2, center_lat:3.5, center_lng:2.8, radius_km:400, routing_action:'strong_avoid', summary:'High piracy activity including robbery incidents.' },
+          { zone_id:'DZ-005', name:'Somali Coast / Gulf of Aden', zone_type:'piracy_zone', severity:6.8, center_lat:11.5, center_lng:51.0, radius_km:500, routing_action:'strong_avoid', summary:'Renewed piracy risk near Horn of Africa.' },
+          { zone_id:'DZ-003', name:'Singapore Strait', zone_type:'piracy_zone', severity:5.5, center_lat:1.2, center_lng:103.8, radius_km:150, routing_action:'caution', summary:'Rising maritime robbery incidents.' },
+        ]);
+      } finally { setGeoLoading(false); }
     })();
   }, []);
 
@@ -158,6 +195,34 @@ export default function MissionControl({ user }) {
               {[['all', '🌐 All'], ['sea', '⚓ Sea'], ['land', '🛣️ Land'], ['air', '✈️ Air']].map(([m, l]) => (
                 <button key={m} className={`mode-btn${mode === m ? ' on' : ''}`} onClick={() => setMode(m)}>{l}</button>
               ))}
+              <button
+                className={`mode-btn geo-toggle${showGeoZones ? ' on' : ''}`}
+                onClick={() => setShowGeoZones(v => !v)}
+                title="Toggle geopolitical danger zones"
+              >
+                🛡️ Danger Zones {geoZones.length > 0 && `(${geoZones.length})`}
+              </button>
+              <button
+                className={`mode-btn ais-toggle${showAIS ? ' on' : ''}`}
+                onClick={() => {
+                  setShowAIS(v => !v);
+                  if (!showAIS && aisVessels.length === 0) {
+                    // Fetch AIS data for visible map area
+                    setAisLoading(true);
+                    const bounds = mapRef.current?.getBounds?.();
+                    const params = bounds
+                      ? { minlat: bounds.getSouth(), maxlat: bounds.getNorth(), minlon: bounds.getWest(), maxlon: bounds.getEast() }
+                      : { minlat: 0, maxlat: 45, minlon: 20, maxlon: 90 };
+                    api.get('/ais/zone', { params }).then(r => {
+                      setAisVessels(r.data?.vessels || []);
+                      setAisRegion(params);
+                    }).catch(() => {}).finally(() => setAisLoading(false));
+                  }
+                }}
+                title="Toggle global AIS ship monitoring"
+              >
+                📡 Global AIS {aisLoading ? '...' : aisVessels.length > 0 ? `(${aisVessels.length})` : ''}
+              </button>
             </div>
           </div>
           <div style={{ height: 420, position: 'relative' }}>
@@ -187,14 +252,95 @@ export default function MissionControl({ user }) {
                   </span>
                 );
               })}
+
+              {/* Geopolitical Danger Zones */}
+              {showGeoZones && geoZones.map(zone => {
+                const isWar = zone.zone_type === 'war_zone';
+                const isPiracy = zone.zone_type === 'piracy_zone';
+                const zoneColor = isWar ? '#EF4444' : isPiracy ? '#F97316' : '#F59E0B';
+                const fillOpacity = zone.severity >= 8 ? 0.18 : zone.severity >= 6 ? 0.12 : 0.08;
+                const typeLabel = (zone.zone_type || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const actionLabel = (zone.routing_action || '').replace(/_/g, ' ').toUpperCase();
+                const radiusMeters = (zone.radius_km || 200) * 1000;
+                return (
+                  <Circle
+                    key={zone.zone_id}
+                    center={[zone.center_lat, zone.center_lng]}
+                    radius={radiusMeters}
+                    className="geo-zone-circle"
+                    pathOptions={{
+                      color: zoneColor,
+                      fillColor: zoneColor,
+                      fillOpacity,
+                      weight: zone.severity >= 8 ? 2 : 1.5,
+                      dashArray: isWar ? undefined : '8 4',
+                      opacity: 0.7,
+                    }}
+                  >
+                    <Tooltip direction="top" sticky>
+                      <div style={{ fontSize: 12, maxWidth: 240 }}>
+                        <strong style={{ color: zoneColor }}>{isWar ? '⚔️' : isPiracy ? '🏴‍☠️' : '⚠️'} {zone.name}</strong><br/>
+                        <span style={{ fontSize: 10, opacity: 0.8 }}>{typeLabel} · Severity {zone.severity}/10</span><br/>
+                        <span style={{ fontSize: 10, opacity: 0.7 }}>{zone.summary}</span><br/>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: zoneColor }}>Action: {actionLabel}</span>
+                      </div>
+                    </Tooltip>
+                  </Circle>
+                );
+              })}
+
+              {/* Global AIS Vessels */}
+              {showAIS && aisVessels.map(v => (
+                <CircleMarker
+                  key={v.mmsi}
+                  center={[v.lat, v.lng]}
+                  radius={3}
+                  pathOptions={{
+                    color: v.marker_color || '#3B82F6',
+                    fillColor: v.marker_color || '#3B82F6',
+                    fillOpacity: v.is_moving ? 0.9 : 0.5,
+                    weight: 1,
+                  }}
+                >
+                  <Tooltip direction="top" offset={[0, -4]}>
+                    <div style={{ fontSize: 11, maxWidth: 220 }}>
+                      <strong>{v.vessel_name || 'Unknown'}</strong><br/>
+                      <span style={{ fontSize: 10, opacity: 0.8 }}>MMSI: {v.mmsi}{v.imo ? ` · IMO: ${v.imo}` : ''}</span><br/>
+                      <span style={{ fontSize: 10, opacity: 0.8 }}>{v.vessel_type_name} · {v.nav_status_name}</span><br/>
+                      <span style={{ fontSize: 10, opacity: 0.7 }}>Speed: {v.speed_knots} kn · Course: {v.course}°</span>
+                    </div>
+                  </Tooltip>
+                </CircleMarker>
+              ))}
             </MapContainer>
             {/* Legend */}
-            <div style={{ position: 'absolute', bottom: 10, left: 10, display: 'flex', gap: 10, background: isDark ? 'rgba(6,12,24,.88)' : 'rgba(255,255,255,.88)', padding: '5px 12px', borderRadius: 8, fontSize: 10, zIndex: 1000, backdropFilter: 'blur(4px)', color: isDark ? '#ccc' : '#333' }}>
+            <div style={{ position: 'absolute', bottom: 10, left: 10, display: 'flex', gap: 10, background: isDark ? 'rgba(6,12,24,.88)' : 'rgba(255,255,255,.88)', padding: '5px 12px', borderRadius: 8, fontSize: 10, zIndex: 1000, backdropFilter: 'blur(4px)', color: isDark ? '#ccc' : '#333', flexWrap: 'wrap' }}>
               {[['Critical', '#EF4444'], ['High', '#F97316'], ['Medium', '#F59E0B'], ['Low', '#10B981']].map(([l, c]) => (
                 <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ width: 8, height: 8, background: c, borderRadius: '50%', display: 'inline-block' }} />{l}
                 </span>
               ))}
+              {showGeoZones && <>
+                <span style={{ opacity: 0.4 }}>│</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 10, height: 10, background: 'rgba(239,68,68,.3)', border: '1.5px solid #EF4444', borderRadius: '50%', display: 'inline-block' }} />War Zone
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 10, height: 10, background: 'rgba(249,115,22,.3)', border: '1.5px dashed #F97316', borderRadius: '50%', display: 'inline-block' }} />Piracy
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 10, height: 10, background: 'rgba(245,158,11,.3)', border: '1.5px dashed #F59E0B', borderRadius: '50%', display: 'inline-block' }} />Weather
+                </span>
+              </>}
+              {showAIS && aisVessels.length > 0 && <>
+                <span style={{ opacity: 0.4 }}>│</span>
+                {[['Cargo','#00D4B4'],['Tanker','#F59E0B'],['Passenger','#8B5CF6'],['Other','#6B7280']].map(([l,c]) => (
+                  <span key={l} style={{ display:'flex',alignItems:'center',gap:4 }}>
+                    <span style={{ width:6,height:6,background:c,borderRadius:'50%',display:'inline-block' }} />{l}
+                  </span>
+                ))}
+                <span style={{ opacity:0.5,fontStyle:'italic' }}>AIS: {aisVessels.length} ships</span>
+              </>}
             </div>
           </div>
         </div>

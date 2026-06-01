@@ -9,20 +9,19 @@ const GEO_LAB_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000') + 
 
 // ── CSS — uses only CSS variables so light/dark theme toggle works ─────────────
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Orbitron:wght@700&family=JetBrains+Mono:wght@400;500&display=swap');
 .mc *{box-sizing:border-box;}
-.mc{font-family:'Space Grotesk',sans-serif;color:var(--text-primary,#F0F4FF);padding:20px 24px 24px;}
+.mc{font-family:var(--font-body,'Instrument Sans',sans-serif);color:var(--text-primary,#F0F4FF);padding:20px 24px 24px;}
 .stat-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px;}
 .scard{background:var(--bg-surface,#0C1424);border:1px solid var(--border-default,#1A2A45);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;transition:border-color .2s;}
-.scard:hover{border-color:rgba(0,212,180,.35);}
+.scard:hover{border-color:rgba(59,130,246,.35);}
 .scard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
-.sval{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;line-height:1.2;}
+.sval{font-family:var(--font-mono,'JetBrains Mono',monospace);font-size:20px;font-weight:700;line-height:1.2;}
 .slbl{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted,#8A9BB5);margin-bottom:6px;}
 .ssub{font-size:10px;color:var(--text-muted,#8A9BB5);opacity:.7;margin-top:4px;}
 .map-wrap{background:var(--bg-surface,#0C1424);border:1px solid var(--border-default,#1A2A45);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;margin-bottom:14px;}
 .map-toolbar{padding:10px 14px;border-bottom:1px solid var(--border-default,#1A2A45);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-.mode-btn{padding:4px 11px;border-radius:16px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--border-default,#1A2A45);background:transparent;color:var(--text-muted,#8A9BB5);font-family:'Space Grotesk',sans-serif;transition:all .15s;}
-.mode-btn.on{background:rgba(0,212,180,.12);color:#00D4B4;border-color:#00D4B4;}
+.mode-btn{padding:4px 11px;border-radius:16px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--border-default,#1A2A45);background:transparent;color:var(--text-muted,#8A9BB5);font-family:var(--font-body,'Instrument Sans',sans-serif);transition:all .15s;}
+.mode-btn.on{background:var(--accent-glow);color:var(--accent-primary);border-color:var(--accent-primary);}
 .bottom-row{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:start;}
 .alert-panel{background:var(--bg-surface,#0C1424);border:1px solid var(--border-default,#1A2A45);border-radius:10px;overflow:hidden;}
 .qa-panel{background:var(--bg-surface,#0C1424);border:1px solid var(--border-default,#1A2A45);border-radius:10px;padding:12px 14px;width:260px;}
@@ -30,20 +29,20 @@ const css = `
 .rp-title{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-muted,#8A9BB5);}
 .aitem{display:flex;gap:10px;align-items:flex-start;padding:8px 14px;cursor:pointer;border-bottom:1px solid var(--border-default,#1A2A45);transition:background .15s;}
 .aitem:last-child{border-bottom:none;}
-.aitem:hover{background:rgba(0,212,180,.04);}
+.aitem:hover{background:rgba(59,130,246,.06);}
 .mc-chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
 .qa-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px;}
-.qa-btn{text-align:center;padding:10px 8px;background:var(--bg-base,#060C18);border:1px solid var(--border-default,#1A2A45);border-radius:8px;cursor:pointer;transition:all .15s;font-family:'Space Grotesk',sans-serif;}
-.qa-btn:hover{border-color:#00D4B4;background:rgba(0,212,180,.06);}
+.qa-btn{text-align:center;padding:10px 8px;background:var(--bg-base,#060C18);border:1px solid var(--border-default,#1A2A45);border-radius:8px;cursor:pointer;transition:all .15s;font-family:var(--font-body,'Instrument Sans',sans-serif);}
+.qa-btn:hover{border-color:var(--accent-primary);background:var(--accent-glow);}
 @keyframes mcpulse{0%,100%{opacity:1;}50%{opacity:.4;}}
-.ldot{width:6px;height:6px;background:#10B981;border-radius:50%;display:inline-block;animation:mcpulse 2s infinite;}
+.ldot{width:6px;height:6px;background:var(--success);border-radius:50%;display:inline-block;animation:mcpulse 2s infinite;}
 @keyframes zonePulse{0%,100%{opacity:.55;}50%{opacity:.3;}}
 .geo-zone-circle{animation:zonePulse 3s ease-in-out infinite;}
 .geo-toggle.on{background:rgba(239,68,68,.12)!important;color:#EF4444!important;border-color:#EF4444!important;}
 .ais-toggle.on{background:rgba(59,130,246,.12)!important;color:#3B82F6!important;border-color:#3B82F6!important;}
 `;
 
-const RC = {critical:'#EF4444',high:'#F97316',medium:'#F59E0B',low:'#10B981'};
+const RC = {critical:'#EF4444',high:'#F97316',medium:'#EAB308',low:'#22C55E'};
 const rc = l => RC[String(l||'').toLowerCase()] || '#8A9BB5';
 const fmt = s => s ? s.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : '—';
 const ago = iso => { const d=Math.floor((Date.now()-new Date(iso))/1000); if(d<60)return`${d}s ago`; if(d<3600)return`${Math.floor(d/60)}m ago`; return`${Math.floor(d/3600)}h ago`; };
@@ -142,12 +141,12 @@ export default function MissionControl({ user }) {
   }, []);
 
   const statCards = [
-    { l: 'Total Active',     v: stats.active_shipments,                                  s: 'Active shipments',      c: '#00D4B4' },
+    { l: 'Total Active',     v: stats.active_shipments,                                  s: 'Active shipments',      c: '#3B82F6' },
     { l: 'Critical Risk',    v: stats.critical_count,                                    s: 'Needs immediate action', c: '#EF4444' },
     { l: 'High Risk',        v: stats.high_risk_count,                                   s: 'Flagged shipments',     c: '#F97316' },
-    { l: 'On-Time Rate',     v: `${Number(stats.on_time_percentage).toFixed(1)}%`,        s: 'Delivery performance',  c: '#10B981' },
-    { l: 'Delayed',          v: stats.delayed_count,                                     s: 'Behind schedule',       c: '#F59E0B' },
-    { l: 'Revenue at Risk',  v: `$${(Number(stats.revenue_at_risk)/1e6).toFixed(2)}M`,   s: 'Exposure this week',    c: '#8B5CF6' },
+    { l: 'On-Time Rate',     v: `${Number(stats.on_time_percentage).toFixed(1)}%`,        s: 'Delivery performance',  c: '#22C55E' },
+    { l: 'Delayed',          v: stats.delayed_count,                                     s: 'Behind schedule',       c: '#EAB308' },
+    { l: 'Revenue at Risk',  v: `$${(Number(stats.revenue_at_risk)/1e6).toFixed(2)}M`,   s: 'Exposure this week',    c: '#3B82F6' },
   ];
 
   // Map tile — switches with theme
@@ -186,7 +185,7 @@ export default function MissionControl({ user }) {
               <span className="ldot" />
               <span style={{ fontSize: 12, fontWeight: 600 }}>Live Fleet Map</span>
               {dummy && (
-                <span style={{ fontSize: 9, color: '#F59E0B', padding: '2px 7px', background: 'rgba(245,158,11,.1)', border: '1px solid rgba(245,158,11,.3)', borderRadius: 6 }}>
+                <span style={{ fontSize: 9, color: '#EAB308', padding: '2px 7px', background: 'rgba(234,179,8,.1)', border: '1px solid rgba(234,179,8,.3)', borderRadius: 6 }}>
                   DEMO — Backend offline
                 </span>
               )}
@@ -257,7 +256,7 @@ export default function MissionControl({ user }) {
               {showGeoZones && geoZones.map(zone => {
                 const isWar = zone.zone_type === 'war_zone';
                 const isPiracy = zone.zone_type === 'piracy_zone';
-                const zoneColor = isWar ? '#EF4444' : isPiracy ? '#F97316' : '#F59E0B';
+                const zoneColor = isWar ? '#EF4444' : isPiracy ? '#F97316' : '#EAB308';
                 const fillOpacity = zone.severity >= 8 ? 0.18 : zone.severity >= 6 ? 0.12 : 0.08;
                 const typeLabel = (zone.zone_type || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                 const actionLabel = (zone.routing_action || '').replace(/_/g, ' ').toUpperCase();
@@ -315,7 +314,7 @@ export default function MissionControl({ user }) {
             </MapContainer>
             {/* Legend */}
             <div style={{ position: 'absolute', bottom: 10, left: 10, display: 'flex', gap: 10, background: isDark ? 'rgba(6,12,24,.88)' : 'rgba(255,255,255,.88)', padding: '5px 12px', borderRadius: 8, fontSize: 10, zIndex: 1000, backdropFilter: 'blur(4px)', color: isDark ? '#ccc' : '#333', flexWrap: 'wrap' }}>
-              {[['Critical', '#EF4444'], ['High', '#F97316'], ['Medium', '#F59E0B'], ['Low', '#10B981']].map(([l, c]) => (
+              {[['Critical', '#EF4444'], ['High', '#F97316'], ['Medium', '#EAB308'], ['Low', '#22C55E']].map(([l, c]) => (
                 <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ width: 8, height: 8, background: c, borderRadius: '50%', display: 'inline-block' }} />{l}
                 </span>
@@ -329,12 +328,12 @@ export default function MissionControl({ user }) {
                   <span style={{ width: 10, height: 10, background: 'rgba(249,115,22,.3)', border: '1.5px dashed #F97316', borderRadius: '50%', display: 'inline-block' }} />Piracy
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 10, height: 10, background: 'rgba(245,158,11,.3)', border: '1.5px dashed #F59E0B', borderRadius: '50%', display: 'inline-block' }} />Weather
+                  <span style={{ width: 10, height: 10, background: 'rgba(234,179,8,.3)', border: '1.5px dashed #EAB308', borderRadius: '50%', display: 'inline-block' }} />Weather
                 </span>
               </>}
               {showAIS && aisVessels.length > 0 && <>
                 <span style={{ opacity: 0.4 }}>│</span>
-                {[['Cargo','#00D4B4'],['Tanker','#F59E0B'],['Passenger','#8B5CF6'],['Other','#6B7280']].map(([l,c]) => (
+                {[['Cargo','#3B82F6'],['Tanker','#EAB308'],['Passenger','#22C55E'],['Other','#6B7280']].map(([l,c]) => (
                   <span key={l} style={{ display:'flex',alignItems:'center',gap:4 }}>
                     <span style={{ width:6,height:6,background:c,borderRadius:'50%',display:'inline-block' }} />{l}
                   </span>
@@ -351,7 +350,7 @@ export default function MissionControl({ user }) {
           <div className="alert-panel">
             <div className="rp-head">
               <span className="rp-title">🚨 Alerts Feed</span>
-              <button style={{ fontSize: 10, color: '#00D4B4', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }} onClick={() => navigate('/manager?tab=alerts')}>View all →</button>
+              <button style={{ fontSize: 10, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }} onClick={() => navigate('/manager?tab=alerts')}>View all →</button>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 14px' }}>
               {alerts.slice(0, 6).map(a => (

@@ -17,6 +17,10 @@
 	--portal-input-bg: rgba(15, 23, 42, 0.65);
 	--portal-input-border: rgba(255, 255, 255, 0.08);
 	--portal-toggle-bg: rgba(255, 255, 255, 0.08);
+	--portal-brand-bg: #050b1f;
+	--portal-brand-fade: rgba(13, 20, 36, 0.85);
+	--portal-brand-image-filter: none;
+	--portal-brand-image-opacity: 1;
 
 	position: fixed;
 	inset: 0;
@@ -43,6 +47,10 @@
 	--portal-input-bg: #f8fafc;
 	--portal-input-border: #e2e8f0;
 	--portal-toggle-bg: rgba(15, 23, 42, 0.05);
+	--portal-brand-bg: #eef2f8;
+	--portal-brand-fade: rgba(241, 245, 249, 0.95);
+	--portal-brand-image-filter: saturate(0.85) brightness(1.08);
+	--portal-brand-image-opacity: 0.9;
 }
 
 .portal-auth *,
@@ -334,7 +342,7 @@
 	flex: 1 1 50%;
 	min-height: 100%;
 	overflow: hidden;
-	background: #050b1f;
+	background: var(--portal-brand-bg);
 }
 
 .rg-login__brand-image {
@@ -344,6 +352,8 @@
 	background-size: 89% auto;
 	background-position: center;
 	background-repeat: no-repeat;
+	filter: var(--portal-brand-image-filter);
+	opacity: var(--portal-brand-image-opacity);
 }
 
 /* Soft fade on the right edge so it transitions cleanly into the form pane */
@@ -354,7 +364,7 @@
 	right: -1px;
 	bottom: 0;
 	width: 60px;
-	background: linear-gradient(90deg, transparent 0%, rgba(13, 20, 36, 0.85) 100%);
+	background: linear-gradient(90deg, transparent 0%, var(--portal-brand-fade) 100%);
 	pointer-events: none;
 	z-index: 2;
 }

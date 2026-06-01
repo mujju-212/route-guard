@@ -34,8 +34,9 @@ httpx==0.25.2
 apscheduler==3.10.4
 
 # Utilities
-pydantic==2.5.0
-pydantic-settings==2.1.0
+# Use newer Pydantic builds to avoid local Rust builds on Python 3.13.
+pydantic>=2.7.0
+pydantic-settings>=2.2.1
 email-validator>=2.0.0
 python-dateutil==2.8.2
 

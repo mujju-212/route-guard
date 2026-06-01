@@ -5,6 +5,13 @@ Hackathon mode: PostgreSQL only.
 MongoDB and Redis are replaced with in-memory stubs (no external services needed).
 """
 
+if __name__ == "__main__" and __package__ is None:
+    # Allow running as a script from the app/ folder.
+    from pathlib import Path
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -76,6 +83,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
 
 
 # ── API Routers ─────────────────────────────────────────────────────────────────
